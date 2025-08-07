@@ -14,9 +14,9 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 pub use swamp_compile::CompileOptions;
-use swamp_dep_loader::{swamp_registry_path, RunMode};
+use swamp_dep_loader::{RunMode, swamp_registry_path};
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_std::pack::pack;
 use swamp_std::print::print_fn;
@@ -57,7 +57,8 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant.target_constant_memory.ty().is_scalar() {} else {
+        if constant.target_constant_memory.ty().is_scalar() {
+        } else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -492,7 +493,7 @@ pub fn run_function_with_debug(
             if use_color {
                 print!(
                     "{}",
-                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(), ))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(),))
                 );
 
                 for reg in regs {
@@ -591,8 +592,7 @@ pub fn compile_and_code_gen(
 ) -> Option<CompileAndMaybeCodeGenResult> {
     let current_dir = PathBuf::from(Path::new(""));
 
-    let compile_result =
-        compile_main_path(source_map, main_module_path, &options.compile_options)?;
+    let compile_result = compile_main_path(source_map, main_module_path, &options.compile_options)?;
 
     let source_map_wrapper = SourceMapWrapper {
         source_map,
@@ -611,12 +611,10 @@ pub fn compile_and_code_gen(
             Some(code_gen_result)
         };
 
-    Some(
-        CompileAndMaybeCodeGenResult {
-            compile: compile_result,
-            codegen: maybe_code_gen_result,
-        },
-    )
+    Some(CompileAndMaybeCodeGenResult {
+        compile: compile_result,
+        codegen: maybe_code_gen_result,
+    })
 }
 
 pub struct CompileCodeGenVmResult {

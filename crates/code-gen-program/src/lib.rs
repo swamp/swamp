@@ -8,8 +8,8 @@ use swamp_code_gen::disasm::{disasm_function, disasm_whole_program};
 use swamp_code_gen::top_state::TopLevelGenState;
 use swamp_compile::Program;
 use swamp_semantic::Function;
-use swamp_vm_types::types::write_basic_type;
 use swamp_vm_types::FrameMemoryAddress;
+use swamp_vm_types::types::write_basic_type;
 use time_dilation::ScopedTimer;
 
 pub struct CodeGenOptions {
@@ -160,7 +160,6 @@ pub fn code_gen_program(
                         );
                         let end_ip =
                             current_ip + debug_info_for_pc.function_debug_info.ip_range.count.0;
-
 
                         let output_string = disasm_function(
                             &debug_info_for_pc.function_debug_info.return_type,

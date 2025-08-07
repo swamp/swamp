@@ -33,13 +33,15 @@ pub enum SymbolKind {
 pub struct SymbolId(u32);
 
 impl SymbolId {
-    #[must_use] pub const fn inner(&self) -> u32 {
+    #[must_use]
+    pub const fn inner(&self) -> u32 {
         self.0
     }
 }
 
 impl SymbolId {
-    #[must_use] pub const fn new_illegal() -> Self {
+    #[must_use]
+    pub const fn new_illegal() -> Self {
         Self(0)
     }
 }
@@ -48,7 +50,8 @@ impl SymbolId {
 pub struct TopLevelSymbolId(pub SymbolId);
 
 impl TopLevelSymbolId {
-    #[must_use] pub const fn new_illegal() -> Self {
+    #[must_use]
+    pub const fn new_illegal() -> Self {
         Self(SymbolId::new_illegal())
     }
 }
@@ -62,9 +65,9 @@ impl From<TopLevelSymbolId> for SymbolId {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ScopedSymbolId(pub SymbolId);
 
-
 impl ScopedSymbolId {
-    #[must_use] pub const fn new_illegal() -> Self {
+    #[must_use]
+    pub const fn new_illegal() -> Self {
         Self(SymbolId::new_illegal())
     }
 }
@@ -83,7 +86,6 @@ pub struct Symbol {
     pub name: Node,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct SymbolIdAllocator {
     next: u32,
@@ -96,13 +98,14 @@ impl Default for SymbolIdAllocator {
 }
 
 impl SymbolIdAllocator {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { next: 0 }
     }
 
     pub const fn alloc(&mut self) -> SymbolId {
         self.next += 1;
-        
+
         SymbolId(self.next)
     }
 
@@ -114,7 +117,6 @@ impl SymbolIdAllocator {
         ScopedSymbolId(self.alloc())
     }
 }
-
 
 #[derive(Clone, Debug)]
 pub struct Symbols {
@@ -129,7 +131,8 @@ impl Default for Symbols {
 }
 
 impl Symbols {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self {
             top_level_symbols: SeqMap::new(),
             scoped_symbols: SeqMap::new(),
@@ -143,16 +146,19 @@ impl Symbols {
         self.scoped_symbols.insert(symbol_id, symbol).unwrap();
     }
 
-    pub fn iter_all(&self) -> impl Iterator<Item=&Symbol> {
-        self.top_level_symbols.values().chain(self.scoped_symbols.values())
+    pub fn iter_all(&self) -> impl Iterator<Item = &Symbol> {
+        self.top_level_symbols
+            .values()
+            .chain(self.scoped_symbols.values())
     }
 
-    #[must_use] pub fn get(&self, symbol_id: SymbolId) -> Option<&Symbol> {
+    #[must_use]
+    pub fn get(&self, symbol_id: SymbolId) -> Option<&Symbol> {
         if let Some(sym) = self.top_level_symbols.get(&TopLevelSymbolId(symbol_id)) {
-            return Some(sym)
+            return Some(sym);
         }
         if let Some(sym) = self.scoped_symbols.get(&ScopedSymbolId(symbol_id)) {
-            return Some(sym)
+            return Some(sym);
         }
         None
     }

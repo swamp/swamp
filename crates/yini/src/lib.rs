@@ -38,7 +38,9 @@ pub fn read_yini_with_defaults(path: &Path) -> SwampIni {
     if let Some(found) = read_yini(path) {
         found
     } else {
-        SwampIni { members: vec![Path::new("scripts/").to_path_buf()] }
+        SwampIni {
+            members: vec![Path::new("scripts/").to_path_buf()],
+        }
     }
 }
 

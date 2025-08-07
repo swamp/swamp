@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_test_runner::prelude::create_default_source_map_crate_only;
-use swamp_test_runner::{init_logger, run_tests, StepBehavior, TestRunOptions};
+use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(

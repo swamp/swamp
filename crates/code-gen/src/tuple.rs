@@ -59,7 +59,8 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {} else {
+            if target_variable.is_unused {
+            } else {
                 let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 

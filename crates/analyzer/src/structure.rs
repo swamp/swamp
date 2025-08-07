@@ -146,12 +146,15 @@ impl Analyzer<'_> {
             let expression_type = resolved_expression.ty.clone();
 
             let symbol_id = self.shared.state.symbol_id_allocator.alloc_top_level();
-            self.shared.state.symbols.insert_top(symbol_id, Symbol {
-                id: symbol_id.into(),
-                kind: SymbolKind::AnonStructField,
-                source_map_node: Default::default(),
-                name: Default::default(),
-            });
+            self.shared.state.symbols.insert_top(
+                symbol_id,
+                Symbol {
+                    id: symbol_id.into(),
+                    kind: SymbolKind::AnonStructField,
+                    source_map_node: Default::default(),
+                    name: Default::default(),
+                },
+            );
 
             let field = StructTypeField {
                 symbol_id,
@@ -265,7 +268,10 @@ impl Analyzer<'_> {
         let named_struct_type = self.get_struct_type(qualified_type_identifier);
         let sem_node = self.to_node(&qualified_type_identifier.name.0);
 
-        self.shared.state.refs.add(named_struct_type.symbol_id.into(), sem_node);
+        self.shared
+            .state
+            .refs
+            .add(named_struct_type.symbol_id.into(), sem_node);
 
         let super_type = self
             .shared
@@ -282,7 +288,11 @@ impl Analyzer<'_> {
                 rest_was_specified,
             );
             let ty = anon_expr.ty.clone();
-            self.create_expr(ExpressionKind::NamedStructLiteral(Box::from(anon_expr)), ty, &qualified_type_identifier.name.0)
+            self.create_expr(
+                ExpressionKind::NamedStructLiteral(Box::from(anon_expr)),
+                ty,
+                &qualified_type_identifier.name.0,
+            )
         } else {
             self.create_err(
                 ErrorKind::UnknownStructTypeReference,
@@ -481,8 +491,14 @@ impl Analyzer<'_> {
                 .get(&field_name)
                 .expect("field existence checked above");
 
-            self.shared.state.refs.add(looked_up_field.symbol_id.into(), resolved_node.clone());
-            self.shared.definition_table.refs.add(looked_up_field.symbol_id.into(), resolved_node.clone());
+            self.shared
+                .state
+                .refs
+                .add(looked_up_field.symbol_id.into(), resolved_node.clone());
+            self.shared
+                .definition_table
+                .refs
+                .add(looked_up_field.symbol_id.into(), resolved_node.clone());
 
             let field_index_in_definition = target_anon_struct_type
                 .field_name_sorted_fields

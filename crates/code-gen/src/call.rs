@@ -9,12 +9,15 @@ use crate::ctx::Context;
 use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
-use crate::{err, ArgumentAndTempScope, RepresentationOfRegisters, SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS};
+use crate::{
+    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
+    SpilledRegisterRegion, err,
+};
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
-use swamp_types::prelude::Signature;
+use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::TypeKind;
+use swamp_types::prelude::Signature;
 use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
 
@@ -162,7 +165,10 @@ impl CodeBuilder<'_> {
                 }
             }
             ArgumentExpression::MaterializedExpression(expr) => {
-                if Self::rvalue_needs_memory_location_to_materialize_in(&mut self.state.layout_cache, expr) {
+                if Self::rvalue_needs_memory_location_to_materialize_in(
+                    &mut self.state.layout_cache,
+                    expr,
+                ) {
                     // Use the helper function to get a pointer to the temporary storage
                     let temp_ptr = self.emit_scalar_rvalue_or_pointer_to_temporary(expr, ctx, true);
 
@@ -193,7 +199,6 @@ impl CodeBuilder<'_> {
             }
         }
     }
-
 
     pub(crate) fn emit_arguments(
         &mut self,
@@ -534,7 +539,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})", );
+        let call_comment = &format!("calling `{function_name}` ({comment})",);
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {

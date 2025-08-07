@@ -18,14 +18,14 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
-    b8_type, u32_type, u8_type, BasicTypeRef, Destination, TypedRegister, VmType,
+    BasicTypeRef, Destination, TypedRegister, VmType, b8_type, u8_type, u32_type,
 };
 use swamp_vm_types::{
-    AggregateMemoryLocation, FrameMemoryRegion, FrameMemorySize, MemoryLocation,
-    MemoryOffset, MemorySize, PointerLocation, ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET,
+    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, AggregateMemoryLocation,
+    FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use tracing::info;
@@ -134,8 +134,8 @@ impl CodeBuilder<'_> {
         }
     }
 
-
-    #[must_use] pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
+    #[must_use]
+    pub fn total_aligned_frame_size(&self) -> FrameMemorySize {
         let aligned = align(
             self.frame_allocator.addr().as_size().0 as usize,
             SAFE_ALIGNMENT,

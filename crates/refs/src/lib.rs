@@ -16,7 +16,8 @@ impl Default for ReferenceTracker {
 }
 
 impl ReferenceTracker {
-    #[must_use] pub fn new() -> Self {
+    #[must_use]
+    pub fn new() -> Self {
         Self { map: SeqMap::new() }
     }
 
@@ -28,15 +29,17 @@ impl ReferenceTracker {
         }
     }
 
-    #[must_use] pub fn get(&self, symbol: SymbolId) -> Option<&[Node]> {
+    #[must_use]
+    pub fn get(&self, symbol: SymbolId) -> Option<&[Node]> {
         self.map.get(&symbol).map(std::vec::Vec::as_slice)
     }
 
-    #[must_use] pub fn is_used(&self, symbol: &SymbolId) -> bool {
+    #[must_use]
+    pub fn is_used(&self, symbol: &SymbolId) -> bool {
         self.map.get(symbol).is_some_and(|v| !v.is_empty())
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=(&SymbolId, &[Node])> {
+    pub fn iter(&self) -> impl Iterator<Item = (&SymbolId, &[Node])> {
         self.map.iter().map(|(id, nodes)| (id, nodes.as_slice()))
     }
 }
@@ -59,10 +62,9 @@ impl Default for ModuleSymbolReferences {
 }
 
 impl ModuleSymbolReferences {
-    #[must_use] pub const fn new() -> Self {
-        Self {
-            refs: Vec::new(),
-        }
+    #[must_use]
+    pub const fn new() -> Self {
+        Self { refs: Vec::new() }
     }
     pub fn add(&mut self, symbol_id: SymbolId, usage_site: Node) {
         self.refs.push(SymbolReference {

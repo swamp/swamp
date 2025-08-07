@@ -525,7 +525,6 @@ impl Function {
         }
     }
 
-
     #[must_use]
     pub fn maybe_node(&self) -> Option<&Node> {
         match self {
@@ -937,47 +936,129 @@ pub enum ExpressionKind {
 impl Display for ExpressionKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ConstantAccess(_) => { write!(f, "constant") }
-            Self::VariableAccess(_) => { write!(f, "varaccess") }
-            Self::BinaryOp(_) => { write!(f, "binaryop") }
-            Self::UnaryOp(_) => { write!(f, "unaryop") }
-            Self::PostfixChain(_, _) => { write!(f, "prefix") }
-            Self::CoerceOptionToBool(_) => { write!(f, "byte") }
-            Self::CoerceIntToChar(_) => { write!(f, "byte") }
-            Self::CoerceIntToByte(_) => { write!(f, "byte") }
-            Self::CoerceToAny(_) => { write!(f, "byte") }
-            Self::IntrinsicCallEx(_, _) => { write!(f, "byte") }
-            Self::InternalCall(_, _) => { write!(f, "byte") }
-            Self::HostCall(_, _) => { write!(f, "byte") }
-            Self::VariableDefinition(a, b) => { write!(f, "vardef {a:?} {}", b.kind) }
-            Self::VariableDefinitionLValue(a, b) => { write!(f, "vardefl {a:?}") }
-            Self::VariableReassignment(_, _) => { write!(f, "var  reassignment") }
-            Self::Assignment(_, _) => { write!(f, "byte") }
-            Self::CompoundAssignment(_, _, _) => { write!(f, "byte") }
-            Self::AnonymousStructLiteral(_) => { write!(f, "byte") }
-            Self::NamedStructLiteral(_) => { write!(f, "byte") }
-            Self::FloatLiteral(_) => { write!(f, "byte") }
-            Self::NoneLiteral => { write!(f, "byte") }
-            Self::IntLiteral(_) => { write!(f, "byte") }
-            Self::ByteLiteral(_) => { write!(f, "byte") }
-            Self::StringLiteral(_) => { write!(f, "byte") }
-            Self::BoolLiteral(_) => { write!(f, "byte") }
-            Self::EnumVariantLiteral(_, _) => { write!(f, "byte") }
-            Self::TupleLiteral(_) => { write!(f, "byte") }
-            Self::InitializerList(_, _) => { write!(f, "byte") }
-            Self::InitializerPairList(_, _) => { write!(f, "byte") }
-            Self::Option(_) => { write!(f, "byte") }
-            Self::ForLoop(_, _, _) => { write!(f, "byte") }
-            Self::WhileLoop(_, _) => { write!(f, "byte") }
-            Self::Block(_) => { write!(f, "byte") }
-            Self::Match(_) => { write!(f, "byte") }
-            Self::Guard(_) => { write!(f, "byte") }
-            Self::If(_, _, _) => { write!(f, "byte") }
-            Self::When(_, _, _) => { write!(f, "byte") }
-            Self::TupleDestructuring(_, _, _) => { write!(f, "byte") }
-            Self::Lambda(_, _) => { write!(f, "byte") }
-            Self::BorrowMutRef(_) => { write!(f, "byte") }
-            Self::Error(_) => { write!(f, "byte") }
+            Self::ConstantAccess(_) => {
+                write!(f, "constant")
+            }
+            Self::VariableAccess(_) => {
+                write!(f, "varaccess")
+            }
+            Self::BinaryOp(_) => {
+                write!(f, "binaryop")
+            }
+            Self::UnaryOp(_) => {
+                write!(f, "unaryop")
+            }
+            Self::PostfixChain(_, _) => {
+                write!(f, "prefix")
+            }
+            Self::CoerceOptionToBool(_) => {
+                write!(f, "byte")
+            }
+            Self::CoerceIntToChar(_) => {
+                write!(f, "byte")
+            }
+            Self::CoerceIntToByte(_) => {
+                write!(f, "byte")
+            }
+            Self::CoerceToAny(_) => {
+                write!(f, "byte")
+            }
+            Self::IntrinsicCallEx(_, _) => {
+                write!(f, "byte")
+            }
+            Self::InternalCall(_, _) => {
+                write!(f, "byte")
+            }
+            Self::HostCall(_, _) => {
+                write!(f, "byte")
+            }
+            Self::VariableDefinition(a, b) => {
+                write!(f, "vardef {a:?} {}", b.kind)
+            }
+            Self::VariableDefinitionLValue(a, b) => {
+                write!(f, "vardefl {a:?}")
+            }
+            Self::VariableReassignment(_, _) => {
+                write!(f, "var  reassignment")
+            }
+            Self::Assignment(_, _) => {
+                write!(f, "byte")
+            }
+            Self::CompoundAssignment(_, _, _) => {
+                write!(f, "byte")
+            }
+            Self::AnonymousStructLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::NamedStructLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::FloatLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::NoneLiteral => {
+                write!(f, "byte")
+            }
+            Self::IntLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::ByteLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::StringLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::BoolLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::EnumVariantLiteral(_, _) => {
+                write!(f, "byte")
+            }
+            Self::TupleLiteral(_) => {
+                write!(f, "byte")
+            }
+            Self::InitializerList(_, _) => {
+                write!(f, "byte")
+            }
+            Self::InitializerPairList(_, _) => {
+                write!(f, "byte")
+            }
+            Self::Option(_) => {
+                write!(f, "byte")
+            }
+            Self::ForLoop(_, _, _) => {
+                write!(f, "byte")
+            }
+            Self::WhileLoop(_, _) => {
+                write!(f, "byte")
+            }
+            Self::Block(_) => {
+                write!(f, "byte")
+            }
+            Self::Match(_) => {
+                write!(f, "byte")
+            }
+            Self::Guard(_) => {
+                write!(f, "byte")
+            }
+            Self::If(_, _, _) => {
+                write!(f, "byte")
+            }
+            Self::When(_, _, _) => {
+                write!(f, "byte")
+            }
+            Self::TupleDestructuring(_, _, _) => {
+                write!(f, "byte")
+            }
+            Self::Lambda(_, _) => {
+                write!(f, "byte")
+            }
+            Self::BorrowMutRef(_) => {
+                write!(f, "byte")
+            }
+            Self::Error(_) => {
+                write!(f, "byte")
+            }
         }
     }
 }

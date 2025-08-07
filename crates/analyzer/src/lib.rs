@@ -114,7 +114,11 @@ pub struct Program {
 
 impl Default for Program {
     fn default() -> Self {
-        Self::new(ProgramState::new(), Modules::new(), DefinitionTable::new(&[]))
+        Self::new(
+            ProgramState::new(),
+            Modules::new(),
+            DefinitionTable::new(&[]),
+        )
     }
 }
 
@@ -194,7 +198,10 @@ impl<'a> Analyzer<'a> {
     fn stop_function(&mut self) {
         self.scope.active_scope.block_scope_stack = take(&mut self.global.block_scope_stack);
         if self.scope.total_scopes.highest_virtual_register > MAX_VIRTUAL_REGISTER / 2 {
-            self.add_hint_resolved(ErrorKind::CloseToMaxVirtualRegister, &self.last_function_node.clone());
+            self.add_hint_resolved(
+                ErrorKind::CloseToMaxVirtualRegister,
+                &self.last_function_node.clone(),
+            );
         }
     }
 
@@ -414,7 +421,10 @@ impl<'a> Analyzer<'a> {
                 let symbol_id: TopLevelSymbolId = found_func.symbol_id();
                 let refs = &mut self.shared.state.refs;
                 refs.add(symbol_id.into(), converted_node.clone());
-                self.shared.definition_table.refs.add(symbol_id.into(), converted_node);
+                self.shared
+                    .definition_table
+                    .refs
+                    .add(symbol_id.into(), converted_node);
             }
             let (kind, signature) = match found_func {
                 FuncDef::Internal(internal_fn) => (
@@ -467,10 +477,18 @@ impl<'a> Analyzer<'a> {
                         found_qualified_identifier,
                     ) = &ast_expression.kind
                     {
-                        if let Some(found_var) = self.try_find_variable(&found_qualified_identifier.name) {
+                        if let Some(found_var) =
+                            self.try_find_variable(&found_qualified_identifier.name)
+                        {
                             let name_node = self.to_node(&found_qualified_identifier.name);
-                            self.shared.state.refs.add(found_var.symbol_id.into(), name_node.clone());
-                            self.shared.definition_table.refs.add(found_var.symbol_id.into(), name_node);
+                            self.shared
+                                .state
+                                .refs
+                                .add(found_var.symbol_id.into(), name_node.clone());
+                            self.shared
+                                .definition_table
+                                .refs
+                                .add(found_var.symbol_id.into(), name_node);
                             Some(StartOfChainBase::Variable(found_var))
                         } else {
                             None
@@ -914,13 +932,25 @@ impl<'a> Analyzer<'a> {
         if analyzed_type_parameters.is_empty() {
             match &symbol.kind {
                 ModuleDefinitionKind::Type(symbol_id, base_type) => {
-                    self.shared.state.refs.add((*symbol_id).into(), sym_node.clone());
-                    self.shared.definition_table.refs.add((*symbol_id).into(), sym_node);
+                    self.shared
+                        .state
+                        .refs
+                        .add((*symbol_id).into(), sym_node.clone());
+                    self.shared
+                        .definition_table
+                        .refs
+                        .add((*symbol_id).into(), sym_node);
                     base_type.clone()
                 }
                 ModuleDefinitionKind::Alias(alias_type) => {
-                    self.shared.state.refs.add(alias_type.symbol_id.into(), sym_node.clone());
-                    self.shared.definition_table.refs.add(alias_type.symbol_id.into(), sym_node);
+                    self.shared
+                        .state
+                        .refs
+                        .add(alias_type.symbol_id.into(), sym_node.clone());
+                    self.shared
+                        .definition_table
+                        .refs
+                        .add(alias_type.symbol_id.into(), sym_node);
                     alias_type.ty.clone()
                 }
                 _ => {
@@ -987,7 +1017,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1021,14 +1051,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1070,14 +1100,23 @@ impl<'a> Analyzer<'a> {
 
         let anon_struct_ref = match &*tv.kind {
             TypeKind::NamedStruct(struct_type) => {
-                let TypeKind::AnonymousStruct(anon_struct) = &*struct_type.anon_struct_type.kind else { panic!("internal error") };
+                let TypeKind::AnonymousStruct(anon_struct) = &*struct_type.anon_struct_type.kind
+                else {
+                    panic!("internal error")
+                };
 
                 let field = anon_struct.field_name_sorted_fields.get(&field_name_str);
                 if let Some(found) = field {
                     let name_node = self.to_node(field_name);
 
-                    self.shared.state.refs.add(found.symbol_id.into(), name_node.clone());
-                    self.shared.definition_table.refs.add(found.symbol_id.into(), name_node);
+                    self.shared
+                        .state
+                        .refs
+                        .add(found.symbol_id.into(), name_node.clone());
+                    self.shared
+                        .definition_table
+                        .refs
+                        .add(found.symbol_id.into(), name_node);
                 }
 
                 struct_type.anon_struct_type.clone()
@@ -1145,8 +1184,14 @@ impl<'a> Analyzer<'a> {
         let signature = func_def.signature().clone();
 
         let name_node = self.to_node(ast_node);
-        self.shared.state.refs.add(func_def.symbol_id().into(), name_node.clone());
-        self.shared.definition_table.refs.add(func_def.symbol_id().into(), name_node);
+        self.shared
+            .state
+            .refs
+            .add(func_def.symbol_id().into(), name_node.clone());
+        self.shared
+            .definition_table
+            .refs
+            .add(func_def.symbol_id().into(), name_node);
 
         let analyzed_arguments =
             self.analyze_and_verify_parameters(ast_node, &signature.parameters, arguments);
@@ -1186,8 +1231,6 @@ impl<'a> Analyzer<'a> {
             //trace!(?start_of_chain_base, "start of postfix chain");
             match start_of_chain_base {
                 StartOfChainBase::FunctionReference(func_def) => {
-
-
                     // In this language version, it is not allowed to provide references to functions
                     // So it must mean that this is a function call
                     if let swamp_ast::Postfix::FunctionCall(
@@ -1197,12 +1240,8 @@ impl<'a> Analyzer<'a> {
                     ) = &chain.postfixes[0]
                     {
                         start_index = 1;
-                        let call_expr = self.analyze_static_call(
-                            ast_node,
-                            func_def,
-                            arguments,
-                            context,
-                        );
+                        let call_expr =
+                            self.analyze_static_call(ast_node, func_def, arguments, context);
                         if chain.postfixes.len() == 1 {
                             return call_expr;
                         }
@@ -1274,7 +1313,6 @@ impl<'a> Analyzer<'a> {
                         .state
                         .types
                         .anonymous_struct(struct_type_ref.clone());
-
 
                     self.add_postfix(
                         &mut suffixes,
@@ -1425,7 +1463,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1729,8 +1768,14 @@ impl<'a> Analyzer<'a> {
         if let Some(found_variable) = self.try_find_variable(var_node) {
             let name_node = self.to_node(var_node);
 
-            self.shared.state.refs.add(found_variable.symbol_id.into(), name_node.clone());
-            self.shared.definition_table.refs.add(found_variable.symbol_id.into(), name_node);
+            self.shared
+                .state
+                .refs
+                .add(found_variable.symbol_id.into(), name_node.clone());
+            self.shared
+                .definition_table
+                .refs
+                .add(found_variable.symbol_id.into(), name_node);
 
             return self.create_expr(
                 ExpressionKind::VariableAccess(found_variable.clone()),
@@ -2419,8 +2464,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2661,7 +2706,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2740,8 +2786,14 @@ impl<'a> Analyzer<'a> {
             self.check_mutable_variable_assignment(source_expression, &source_expr.ty, variable);
 
             let name_node = self.to_node(&variable.name);
-            self.shared.state.refs.add(found_var.symbol_id.into(), name_node.clone());
-            self.shared.definition_table.refs.add(found_var.symbol_id.into(), name_node);
+            self.shared
+                .state
+                .refs
+                .add(found_var.symbol_id.into(), name_node.clone());
+            self.shared
+                .definition_table
+                .refs
+                .add(found_var.symbol_id.into(), name_node);
 
             ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
         } else {
@@ -2908,7 +2960,6 @@ impl<'a> Analyzer<'a> {
                     //let field_name_resolved = self.to_node(field_name_node)
                     let (struct_type_ref, index, return_type) =
                         self.analyze_struct_field(field_name_node, &ty);
-
 
                     self.add_location_item(
                         &mut items,
@@ -3185,8 +3236,14 @@ impl<'a> Analyzer<'a> {
                 }
 
                 let name_node = self.to_node(&variable.name);
-                self.shared.state.refs.add(var.symbol_id.into(), name_node.clone());
-                self.shared.definition_table.refs.add(var.symbol_id.into(), name_node.clone());
+                self.shared
+                    .state
+                    .refs
+                    .add(var.symbol_id.into(), name_node.clone());
+                self.shared
+                    .definition_table
+                    .refs
+                    .add(var.symbol_id.into(), name_node.clone());
 
                 SingleLocationExpression {
                     kind: MutableReferenceKind::MutVariableRef,
@@ -3207,8 +3264,14 @@ impl<'a> Analyzer<'a> {
                 }
 
                 let var_node = self.to_node(&generated_var.name);
-                self.shared.state.refs.add(var.symbol_id.into(), var_node.clone());
-                self.shared.definition_table.refs.add(var.symbol_id.into(), var_node.clone());
+                self.shared
+                    .state
+                    .refs
+                    .add(var.symbol_id.into(), var_node.clone());
+                self.shared
+                    .definition_table
+                    .refs
+                    .add(var.symbol_id.into(), var_node.clone());
 
                 SingleLocationExpression {
                     kind: MutableReferenceKind::MutVariableRef,
@@ -3464,17 +3527,29 @@ impl<'a> Analyzer<'a> {
         };
 
         let intrinsic_and_signature = match field_name_str {
-            "discriminant" => {
-                (
-                    IntrinsicFunction::EnumDiscriminant,
-                    Signature {
-                        parameters: vec![
-                            self_type_param,
-                        ],
-                        return_type: self.types().int(),
-                    },
-                )
-            }
+            "discriminant" => (
+                IntrinsicFunction::EnumDiscriminant,
+                Signature {
+                    parameters: vec![self_type_param],
+                    return_type: self.types().int(),
+                },
+            ),
+
+            "from_discriminant" => (
+                IntrinsicFunction::EnumFromDiscriminant,
+                Signature {
+                    parameters: vec![
+                        self_mutable_type_param,
+                        TypeForParameter {
+                            name: "discriminant".to_string(),
+                            resolved_type: self.types().int(),
+                            is_mutable: false,
+                            node: None,
+                        },
+                    ],
+                    return_type: self.types().unit(),
+                },
+            ),
             _ => {
                 self.add_err(ErrorKind::UnknownMemberFunction(self_type.clone()), node);
 
@@ -3484,7 +3559,6 @@ impl<'a> Analyzer<'a> {
 
         Some(intrinsic_and_signature)
     }
-
 
     fn queue_member_signature(
         &mut self,
@@ -4281,9 +4355,7 @@ impl<'a> Analyzer<'a> {
                     lambda_variables_count,
                     node,
                 ),
-            TypeKind::Enum(enum_type) => {
-                self.enum_member_signature(ty, field_name_str, node)
-            }
+            TypeKind::Enum(enum_type) => self.enum_member_signature(ty, field_name_str, node),
             TypeKind::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
                 None,
@@ -4444,8 +4516,14 @@ impl<'a> Analyzer<'a> {
         );
 
         let name_node = self.to_node(node);
-        self.shared.state.refs.add(function_ref.symbol_id().into(), name_node.clone());
-        self.shared.definition_table.refs.add(function_ref.symbol_id().into(), name_node);
+        self.shared
+            .state
+            .refs
+            .add(function_ref.symbol_id().into(), name_node.clone());
+        self.shared
+            .definition_table
+            .refs
+            .add(function_ref.symbol_id().into(), name_node);
 
         (
             PostfixKind::MemberCall(function_ref, resolved_arguments),
@@ -4513,8 +4591,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

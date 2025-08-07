@@ -61,9 +61,9 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         if allow_temporary
             && Self::rvalue_needs_memory_location_to_materialize_in(
-            &mut self.state.layout_cache,
-            expr,
-        )
+                &mut self.state.layout_cache,
+                expr,
+            )
         {
             // Expression needs temporary storage (like initializer lists)
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
@@ -98,7 +98,6 @@ impl CodeBuilder<'_> {
             self.emit_scalar_rvalue(expr, ctx)
         }
     }
-
 
     /// Emits code to evaluate an expression into a scalar rvalue.
     ///

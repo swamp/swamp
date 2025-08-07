@@ -217,7 +217,12 @@ impl EnumType {}
 
 impl EnumType {
     #[must_use]
-    pub fn new(name: Node, assigned_name: &str, symbol_id: TopLevelSymbolId, module_path: Vec<String>) -> Self {
+    pub fn new(
+        name: Node,
+        assigned_name: &str,
+        symbol_id: TopLevelSymbolId,
+        module_path: Vec<String>,
+    ) -> Self {
         Self {
             symbol_id,
             name,

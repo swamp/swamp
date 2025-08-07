@@ -7,7 +7,9 @@ use source_map_cache::SourceMapLookup;
 use source_map_node::Node;
 use std::fmt::{Display, Formatter};
 use swamp_modules::modules::{ModuleRef, Modules};
-use swamp_modules::symtbl::{AliasType, DefinitionTable, FuncDef, ModuleDefinition, ModuleDefinitionKind};
+use swamp_modules::symtbl::{
+    AliasType, DefinitionTable, FuncDef, ModuleDefinition, ModuleDefinitionKind,
+};
 use swamp_semantic::prelude::*;
 use swamp_semantic::{
     ArgumentExpression, AssociatedImpls, MutableReferenceKind, Postfix, PostfixKind,
@@ -84,7 +86,9 @@ impl SourceMapDisplay<'_> {
             ModuleDefinitionKind::Module(module_ref) => {
                 write!(f, "{module_ref:?}")
             }
-            ModuleDefinitionKind::Constant(constant_ref) => self.show_constant_content(f, constant_ref, tabs),
+            ModuleDefinitionKind::Constant(constant_ref) => {
+                self.show_constant_content(f, constant_ref, tabs)
+            }
             ModuleDefinitionKind::FunctionDefinition(func_def) => match func_def {
                 FuncDef::Internal(internal_fn) => self.show_internal_function(f, internal_fn, tabs),
                 FuncDef::Intrinsic(intrinsic_fn) => {
@@ -305,7 +309,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
 
         self.show_type_short(f, &alias.ty, 0)?;
 
@@ -1001,7 +1005,10 @@ impl SourceMapDisplay<'_> {
         tabs: usize,
     ) -> std::fmt::Result {
         match arg {
-            ArgumentExpression::Expression(expression) | ArgumentExpression::MaterializedExpression(expression) => self.show_expression(f, expression, tabs),
+            ArgumentExpression::Expression(expression)
+            | ArgumentExpression::MaterializedExpression(expression) => {
+                self.show_expression(f, expression, tabs)
+            }
             ArgumentExpression::BorrowMutableReference(location) => {
                 self.show_location(f, location, tabs)
             }
@@ -1049,7 +1056,7 @@ impl SourceMapDisplay<'_> {
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{{", )?;
+        write!(f, "{{",)?;
 
         // Extract the anonymous struct fields from the TypeRef
         let field_name_sorted_fields = match &*struct_like_type.kind {

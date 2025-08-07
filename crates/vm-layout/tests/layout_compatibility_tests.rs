@@ -14,7 +14,12 @@ use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::{MemoryAlignment, MemoryOffset, MemorySize};
 fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
-    let mut enum_type = EnumType::new(Node::default(), "TestEnum", TopLevelSymbolId::new_illegal(), vec!["test".to_string()]);
+    let mut enum_type = EnumType::new(
+        Node::default(),
+        "TestEnum",
+        TopLevelSymbolId::new_illegal(),
+        vec!["test".to_string()],
+    );
 
     // Add a simple variant (no payload)
     let empty_variant = EnumVariantType {
@@ -668,8 +673,8 @@ pub fn test_struct_with_max_alignment_field_at_end() {
 pub fn test_two_pass_layout_requirement() {
     let mut type_cache = TypeCache::new();
 
-    let bool_type = type_cache.bool();   // 1 byte, align 1
-    let int_type = type_cache.int();     // 4 bytes, align 4
+    let bool_type = type_cache.bool(); // 1 byte, align 1
+    let int_type = type_cache.int(); // 4 bytes, align 4
 
     // Create a struct where the field with the highest alignment requirement comes last
     // This is the critical case that exposes single-pass vs two-pass differences

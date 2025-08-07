@@ -9,11 +9,14 @@ use crate::transformer::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
-use swamp_vm_types::types::{float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{
+    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
+    u32_type,
+};
 use swamp_vm_types::{
-    AggregateMemoryLocation, MemoryLocation, MemoryOffset,
-    PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
-    GRID_HEADER_WIDTH_OFFSET,
+    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET, MemoryLocation, MemoryOffset,
+    PointerLocation,
 };
 
 impl CodeBuilder<'_> {
@@ -920,7 +923,9 @@ impl CodeBuilder<'_> {
                 // Materialize self to ensure we have the actual scalar value
                 let mut converted_regs = vec![self_reg.unwrap().clone()];
                 for arg in arguments {
-                    let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                    let (ArgumentExpression::Expression(found_expression)
+                    | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                    else {
                         panic!("must be expression");
                     };
                     let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
@@ -996,7 +1001,9 @@ impl CodeBuilder<'_> {
                 // Materialize additional arguments (self is already materialized)
                 let mut converted_regs = vec![self_reg.unwrap().clone()];
                 for arg in arguments {
-                    let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                    let (ArgumentExpression::Expression(found_expression)
+                    | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                    else {
                         panic!("must be expression");
                     };
                     let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
@@ -1026,12 +1033,44 @@ impl CodeBuilder<'_> {
                 }
             }
 
+            IntrinsicFunction::EnumFromDiscriminant => {
+                let enum_pointer = PointerLocation {
+                    ptr_reg: self_reg.unwrap().clone(),
+                };
+
+                assert!(arguments.len() == 1, "problem");
+                // Materialize additional arguments (self is already materialized)
+                let mut converted_regs = vec![self_reg.unwrap().clone()];
+                for arg in arguments {
+                    let (ArgumentExpression::Expression(found_expression)
+                    | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                    else {
+                        panic!("must be expression");
+                    };
+                    let materialized_arg = self.emit_scalar_rvalue(found_expression, ctx);
+                    converted_regs.push(materialized_arg);
+                }
+
+                // TODO: @important: Support different sizes of discriminants
+                self.builder.add_st8_using_ptr_with_offset(
+                    &MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                        enum_pointer.ptr_reg,
+                    ),
+                    &converted_regs[1], // the discriminant to set
+                    node,
+                    "overwrite the discriminant in the enum pointer",
+                );
+            }
+
             IntrinsicFunction::EnumDiscriminant => {
                 let enum_pointer = PointerLocation {
                     ptr_reg: self_reg.unwrap().clone(),
                 };
 
-                let discriminant_temp_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u8_type()), "temp register for fetching discriminant");
+                let discriminant_temp_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u8_type()),
+                    "temp register for fetching discriminant",
+                );
 
                 // TODO: @important: Support different sizes of discriminants
                 self.builder.add_ld8_from_pointer_with_offset(
@@ -1065,7 +1104,6 @@ impl CodeBuilder<'_> {
             }
 
              */
-
             IntrinsicFunction::VecPush
             | IntrinsicFunction::VecPop
             | IntrinsicFunction::VecExtend
@@ -1087,7 +1125,9 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                        let (ArgumentExpression::Expression(found_expression)
+                        | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                        else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1116,7 +1156,9 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                        let (ArgumentExpression::Expression(found_expression)
+                        | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                        else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1144,7 +1186,9 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                        let (ArgumentExpression::Expression(found_expression)
+                        | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                        else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1460,7 +1504,9 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                        let (ArgumentExpression::Expression(found_expression)
+                        | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                        else {
                             panic!("must be expression");
                         };
                         found_expression.clone()
@@ -1631,7 +1677,9 @@ impl CodeBuilder<'_> {
                 let converted_to_expressions: Vec<_> = arguments
                     .iter()
                     .map(|arg| {
-                        let (ArgumentExpression::Expression(found_expression) | ArgumentExpression::MaterializedExpression(found_expression)) = arg else {
+                        let (ArgumentExpression::Expression(found_expression)
+                        | ArgumentExpression::MaterializedExpression(found_expression)) = arg
+                        else {
                             panic!("must be expression");
                         };
                         found_expression.clone()

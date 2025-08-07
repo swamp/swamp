@@ -113,6 +113,7 @@ pub enum IntrinsicFunction {
     RuntimeHalt,
     RuntimeStep,
     EnumDiscriminant,
+    EnumFromDiscriminant,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -175,6 +176,7 @@ impl fmt::Display for IntrinsicFunction {
 
             // Enum
             Self::EnumDiscriminant => "enum_discriminant",
+            Self::EnumFromDiscriminant => "enum_from_discriminant",
 
             // Vec
             Self::VecPush => "vec_push",

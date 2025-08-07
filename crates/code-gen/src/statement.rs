@@ -95,7 +95,8 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            TypeKind::DynamicLengthMapView(_key, _value) | TypeKind::MapStorage(_key, _value, ..) => {
+            TypeKind::DynamicLengthMapView(_key, _value)
+            | TypeKind::MapStorage(_key, _value, ..) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,

@@ -721,13 +721,15 @@ impl GeneratedScope<'_> {
 
         let unique_id = self.allocate_unique_id();
         let symbol_id = self.symbol_id_allocator.alloc_scoped();
-        self.symbols.insert_scoped(symbol_id, Symbol {
-            id: symbol_id.into(),
-            kind: SymbolKind::Variable,
-            source_map_node: node.clone(),
-            name: node.clone(),
-        });
-
+        self.symbols.insert_scoped(
+            symbol_id,
+            Symbol {
+                id: symbol_id.into(),
+                kind: SymbolKind::Variable,
+                source_map_node: node.clone(),
+                name: node.clone(),
+            },
+        );
 
         let var_ref = VariableRef::new(Variable {
             symbol_id,
@@ -1698,7 +1700,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "string"
         }
-            .to_string(),
+        .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {

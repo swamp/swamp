@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_types::{
-    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
+    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
 };
 
 impl Vm {
@@ -537,11 +537,7 @@ impl Vm {
     }
 
     #[inline]
-    pub fn execute_vec_extend(
-        &mut self,
-        destination_vec_reg: u8,
-        src_other_vec: u8,
-    ) {
+    pub fn execute_vec_extend(&mut self, destination_vec_reg: u8, src_other_vec: u8) {
         let vec_addr = get_reg!(self, destination_vec_reg);
         let src_addr = get_reg!(self, src_other_vec);
 
@@ -560,7 +556,6 @@ impl Vm {
         let target_len = unsafe { (*mut_vec_ptr).element_count };
         let src_element_count_to_copy = unsafe { (*src_vec_ptr).element_count };
         let total_len = target_len + src_element_count_to_copy;
-
 
         unsafe {
             if (*mut_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
@@ -585,12 +580,17 @@ impl Vm {
                 return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
-            let tail_of_target_addr = vec_addr + VEC_HEADER_PAYLOAD_OFFSET.0 + target_len as u32 * (*mut_vec_ptr).element_size;
+            let tail_of_target_addr = vec_addr
+                + VEC_HEADER_PAYLOAD_OFFSET.0
+                + target_len as u32 * (*mut_vec_ptr).element_size;
             let start_of_source_addr = src_addr + VEC_HEADER_PAYLOAD_OFFSET.0;
 
             let dest_ptr = self.memory.get_heap_ptr(tail_of_target_addr as usize);
-            let src_ptr = self.memory.get_heap_const_ptr(start_of_source_addr as usize);
-            let byte_count = src_element_count_to_copy as usize * (*mut_vec_ptr).element_size as usize;
+            let src_ptr = self
+                .memory
+                .get_heap_const_ptr(start_of_source_addr as usize);
+            let byte_count =
+                src_element_count_to_copy as usize * (*mut_vec_ptr).element_size as usize;
 
             ptr::copy_nonoverlapping(src_ptr, dest_ptr, byte_count);
             (*mut_vec_ptr).element_count += src_element_count_to_copy;

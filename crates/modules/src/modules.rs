@@ -104,15 +104,20 @@ impl Modules {
     pub fn add(&mut self, module: ModuleRef) {
         let path = module.definition_table.module_path();
 
-        self.modules.insert(path, module.clone()).expect("could not insert");
-        self.file_id_to_module.insert(module.file_id, module.clone());
+        self.modules
+            .insert(path, module.clone())
+            .expect("could not insert");
+        self.file_id_to_module
+            .insert(module.file_id, module.clone());
     }
 
     pub fn link_module(&mut self, module_path: &[String], referred_module: ModuleRef) {
         self.modules
             .insert(module_path.to_vec(), referred_module.clone())
             .expect("could not insert");
-        self.file_id_to_module.insert(referred_module.file_id, referred_module).expect("could not insert");
+        self.file_id_to_module
+            .insert(referred_module.file_id, referred_module)
+            .expect("could not insert");
     }
 
     #[must_use]

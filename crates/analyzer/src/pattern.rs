@@ -95,8 +95,14 @@ impl Analyzer<'_> {
                     self.find_variant_in_pattern(expected_condition_type, variant_name);
 
                 let name_node = self.to_node(node);
-                self.shared.state.refs.add(enum_variant_type_ref.common.symbol_id.into(), name_node.clone());
-                self.shared.definition_table.refs.add(enum_variant_type_ref.common.symbol_id.into(), name_node);
+                self.shared.state.refs.add(
+                    enum_variant_type_ref.common.symbol_id.into(),
+                    name_node.clone(),
+                );
+                self.shared
+                    .definition_table
+                    .refs
+                    .add(enum_variant_type_ref.common.symbol_id.into(), name_node);
 
                 match destructuring_pattern {
                     swamp_ast::DestructuringPattern::Struct { fields } => {

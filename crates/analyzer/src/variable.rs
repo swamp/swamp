@@ -5,8 +5,8 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::err::ErrorKind;
 use swamp_semantic::ScopeInfo;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
@@ -199,7 +199,6 @@ impl Analyzer<'_> {
         if let Some(_existing_variable) = self.try_find_local_variable(variable) {
             self.add_err_resolved(ErrorKind::OverwriteVariableNotAllowedHere, variable);
 
-
             let error_var_ref = VariableRef::new(Variable {
                 symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
@@ -237,7 +236,6 @@ impl Analyzer<'_> {
         if !should_insert_in_scope && is_mutable.is_some() {
             self.add_err_resolved(ErrorKind::UnusedVariablesCanNotBeMut, variable);
 
-
             let error_var_ref = VariableRef::new(Variable {
                 symbol_id: ScopedSymbolId::new_illegal(),
                 name: Default::default(),
@@ -259,12 +257,15 @@ impl Analyzer<'_> {
         let maybe_virtual_register = allocate_next_register(&mut self.scope);
         if let Some(virtual_register) = maybe_virtual_register {
             let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
-            self.shared.state.symbols.insert_scoped(symbol_id, Symbol {
-                id: symbol_id.into(),
-                kind: SymbolKind::Variable,
-                source_map_node: variable.clone(),
-                name: variable.clone(),
-            });
+            self.shared.state.symbols.insert_scoped(
+                symbol_id,
+                Symbol {
+                    id: symbol_id.into(),
+                    kind: SymbolKind::Variable,
+                    source_map_node: variable.clone(),
+                    name: variable.clone(),
+                },
+            );
             let resolved_variable = Variable {
                 symbol_id,
                 name: variable.clone(),
@@ -345,7 +346,8 @@ impl Analyzer<'_> {
         let expression_type = converted_expression.ty();
 
         match converted_expression {
-            ArgumentExpression::Expression(expr) | ArgumentExpression::MaterializedExpression(expr) => {
+            ArgumentExpression::Expression(expr)
+            | ArgumentExpression::MaterializedExpression(expr) => {
                 // For immutable bindings or expressions that can't be aliased,
                 // create a regular variable definition
                 let variable_ref = self.create_local_variable(

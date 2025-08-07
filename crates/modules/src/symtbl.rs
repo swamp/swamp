@@ -10,8 +10,8 @@ use std::rc::Rc;
 use swamp_refs::ModuleSymbolReferences;
 use swamp_semantic::prelude::*;
 use swamp_symbol::TopLevelSymbolId;
-use swamp_types::prelude::*;
 use swamp_types::TypeRef;
+use swamp_types::prelude::*;
 
 #[derive(Debug, Clone)]
 pub enum FuncDef {
@@ -21,13 +21,12 @@ pub enum FuncDef {
 }
 
 impl FuncDef {
-    #[must_use] pub fn symbol_id(&self) -> TopLevelSymbolId {
+    #[must_use]
+    pub fn symbol_id(&self) -> TopLevelSymbolId {
         match self {
-            Self::Internal(internal) => {
-                internal.symbol_id
-            }
-            Self::Intrinsic(_) => { TopLevelSymbolId::new_illegal() }
-            Self::External(_) => { TopLevelSymbolId::new_illegal() }
+            Self::Internal(internal) => internal.symbol_id,
+            Self::Intrinsic(_) => TopLevelSymbolId::new_illegal(),
+            Self::External(_) => TopLevelSymbolId::new_illegal(),
         }
     }
 }
@@ -71,7 +70,6 @@ pub enum ModuleDefinitionKind {
     FunctionDefinition(FuncDef),
     Alias(AliasType),
 }
-
 
 impl ModuleDefinitionKind {
     #[must_use]
@@ -245,7 +243,6 @@ impl DefinitionTable {
         Ok(())
     }
 
-
     /// # Errors
     ///
     pub fn add_constant(&mut self, constant: Constant) -> Result<ConstantRef, SemanticError> {
@@ -259,10 +256,21 @@ impl DefinitionTable {
     /// # Errors
     ///
     pub fn add_constant_link(&mut self, constant_ref: ConstantRef) -> Result<(), SemanticError> {
-        self.insert(&constant_ref.assigned_name, &constant_ref.name, &constant_ref.name, ModuleDefinitionKind::Constant(constant_ref.clone()))
+        self.insert(
+            &constant_ref.assigned_name,
+            &constant_ref.name,
+            &constant_ref.name,
+            ModuleDefinitionKind::Constant(constant_ref.clone()),
+        )
     }
 
-    pub fn insert(&mut self, name: &str, name_node: &Node, range: &Node, kind: ModuleDefinitionKind) -> Result<(), SemanticError> {
+    pub fn insert(
+        &mut self,
+        name: &str,
+        name_node: &Node,
+        range: &Node,
+        kind: ModuleDefinitionKind,
+    ) -> Result<(), SemanticError> {
         let mod_def = ModuleDefinition {
             kind,
             range: range.clone(),
@@ -284,7 +292,12 @@ impl DefinitionTable {
     /// # Errors
     ///
     pub fn add_alias_link(&mut self, alias_type_ref: AliasType) -> Result<(), SemanticError> {
-        self.insert(&alias_type_ref.assigned_name, &alias_type_ref.name, &alias_type_ref.name, ModuleDefinitionKind::Alias(alias_type_ref.clone()))
+        self.insert(
+            &alias_type_ref.assigned_name,
+            &alias_type_ref.name,
+            &alias_type_ref.name,
+            ModuleDefinitionKind::Alias(alias_type_ref.clone()),
+        )
     }
 
     pub fn add_internal_function(
@@ -294,7 +307,12 @@ impl DefinitionTable {
     ) -> Result<InternalFunctionDefinitionRef, SemanticError> {
         let function_ref = Rc::new(function);
 
-        self.insert(&function_ref.assigned_name, &function_ref.name.0, &function_ref.name.0, ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())))?;
+        self.insert(
+            &function_ref.assigned_name,
+            &function_ref.name.0,
+            &function_ref.name.0,
+            ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())),
+        )?;
 
         Ok(function_ref)
     }
@@ -304,7 +322,12 @@ impl DefinitionTable {
         name: &str,
         function_ref: InternalFunctionDefinitionRef,
     ) -> Result<(), SemanticError> {
-        self.insert(&function_ref.assigned_name, &function_ref.name.0, &function_ref.name.0, ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())))
+        self.insert(
+            &function_ref.assigned_name,
+            &function_ref.name.0,
+            &function_ref.name.0,
+            ModuleDefinitionKind::FunctionDefinition(FuncDef::Internal(function_ref.clone())),
+        )
     }
 
     #[must_use]
@@ -312,7 +335,11 @@ impl DefinitionTable {
         self.definitions.get(&name.to_string())
     }
 
-    pub fn add_symbol(&mut self, name: &str, symbol: ModuleDefinition) -> Result<(), SemanticError> {
+    pub fn add_symbol(
+        &mut self,
+        name: &str,
+        symbol: ModuleDefinition,
+    ) -> Result<(), SemanticError> {
         self.definitions
             .insert(name.to_string(), symbol)
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
@@ -401,7 +428,11 @@ impl DefinitionTable {
         }
     }
 
-    fn insert_definition(&mut self, name: &str, symbol: ModuleDefinition) -> Result<(), SemanticError> {
+    fn insert_definition(
+        &mut self,
+        name: &str,
+        symbol: ModuleDefinition,
+    ) -> Result<(), SemanticError> {
         self.definitions
             .insert(name.to_string(), symbol)
             .map_err(|_| SemanticError::DuplicateSymbolName(name.to_string()))
@@ -426,7 +457,12 @@ impl DefinitionTable {
             _ => panic!("not a named type"),
         };
 
-        self.insert(&name, name_node, name_node, ModuleDefinitionKind::Type(symbol_id, ty.clone()))
+        self.insert(
+            &name,
+            name_node,
+            name_node,
+            ModuleDefinitionKind::Type(symbol_id, ty.clone()),
+        )
     }
 
     pub fn add_external_function_declaration(
@@ -450,13 +486,18 @@ impl DefinitionTable {
             &decl_ref.name,
             ModuleDefinitionKind::FunctionDefinition(FuncDef::External(decl_ref.clone())),
         )
-            .map_err(|_| {
-                SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
-            })?;
+        .map_err(|_| {
+            SemanticError::DuplicateExternalFunction(decl_ref.assigned_name.to_string())
+        })?;
         Ok(())
     }
 
-    pub fn add_module_link(&mut self, name: &str, name_node: &Node, ns: ModuleRef) -> Result<(), SemanticError> {
+    pub fn add_module_link(
+        &mut self,
+        name: &str,
+        name_node: &Node,
+        ns: ModuleRef,
+    ) -> Result<(), SemanticError> {
         self.insert(name, name_node, name_node, ModuleDefinitionKind::Module(ns))
     }
 
@@ -467,7 +508,6 @@ impl DefinitionTable {
             _ => None,
         }
     }
-
 
     pub fn add_intrinsic_function(
         &mut self,
@@ -481,7 +521,7 @@ impl DefinitionTable {
             &fake_node,
             ModuleDefinitionKind::FunctionDefinition(FuncDef::Intrinsic(function_ref.clone())),
         )
-            .expect("todo: add seqmap error handling");
+        .expect("todo: add seqmap error handling");
 
         Ok(function_ref)
     }

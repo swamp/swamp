@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMap;
-use swamp_analyzer::prelude::Program;
 use swamp_analyzer::Analyzer;
-use swamp_dep_loader::{parse_local_modules_and_get_order, DependencyParser, ParsedAstModule};
+use swamp_analyzer::prelude::Program;
+use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;
@@ -105,7 +105,12 @@ pub fn analyze_modules_in_order(
                 parse_module,
             )?;
 
-            let analyzed_module = Module::new(analyzed_symbol_table, errors, maybe_expression, parse_module.file_id);
+            let analyzed_module = Module::new(
+                analyzed_symbol_table,
+                errors,
+                maybe_expression,
+                parse_module.file_id,
+            );
             modules.add(analyzed_module.into());
         } else {
             panic!("could not load")

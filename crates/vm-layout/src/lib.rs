@@ -15,10 +15,10 @@ use swamp_vm_types::types::{
     TaggedUnionVariant, TupleType,
 };
 use swamp_vm_types::{
-    adjust_size_to_alignment, align_to, CountU16, MemoryAlignment, MemoryOffset,
-    MemorySize, ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
-    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
-    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
+    MAP_HEADER_ALIGNMENT, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE,
+    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+    adjust_size_to_alignment, align_to,
 };
 
 #[derive(Clone)]
@@ -340,7 +340,12 @@ impl LayoutCache {
 
             TypeKind::Enum(enum_type) => {
                 let variants = enum_type.variants.values().cloned().collect::<Vec<_>>();
-                self.layout_enum(&enum_type.assigned_name, &variants, ty.id, enum_type.symbol_id)
+                self.layout_enum(
+                    &enum_type.assigned_name,
+                    &variants,
+                    ty.id,
+                    enum_type.symbol_id,
+                )
             }
 
             TypeKind::FixedCapacityAndLengthArray(element_type, capacity) => {
@@ -915,11 +920,16 @@ impl LayoutCache {
 
         // Calculate universal hashes and store them
         let universal_hash = layout.universal_hash_u64();
-        let _ = self.universal_id_to_layout.insert(universal_hash, layout.clone());
-        let _ = self.universal_short_id_to_layout.insert(universal_hash as u32, layout);
+        let _ = self
+            .universal_id_to_layout
+            .insert(universal_hash, layout.clone());
+        let _ = self
+            .universal_short_id_to_layout
+            .insert(universal_hash as u32, layout);
     }
 
-    #[must_use] pub fn universal_short_id(&self, short_id: u32) -> &BasicTypeRef {
+    #[must_use]
+    pub fn universal_short_id(&self, short_id: u32) -> &BasicTypeRef {
         if let Some(x) = self.universal_short_id_to_layout.get(&short_id) {
             x
         } else {

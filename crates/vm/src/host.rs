@@ -7,7 +7,7 @@ use std::{
     mem::{align_of, size_of},
     ptr, slice,
 };
-use swamp_vm_types::{AnyHeader, VecHeader, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET};
+use swamp_vm_types::{AnyHeader, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader};
 
 #[derive(Debug)]
 pub struct AnyValue {

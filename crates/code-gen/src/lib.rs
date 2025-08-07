@@ -14,6 +14,7 @@ pub mod ctx;
 pub mod disasm;
 mod enum_variants;
 mod equal;
+mod err;
 mod expr;
 mod func;
 mod guard;
@@ -46,7 +47,6 @@ mod tuple;
 mod variable;
 mod vec;
 mod when;
-mod err;
 
 pub const MAX_REGISTER_INDEX_FOR_PARAMETERS: u8 = 6;
 

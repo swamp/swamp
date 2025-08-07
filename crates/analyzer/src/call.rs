@@ -62,7 +62,10 @@ impl Analyzer<'_> {
                 }
             }
 
-            let resolved_expr = self.analyze_expression(&ref_checked_argument.ast_expression, &context.with_ephemeral());
+            let resolved_expr = self.analyze_expression(
+                &ref_checked_argument.ast_expression,
+                &context.with_ephemeral(),
+            );
             // Check if this expression needs materialization for fixed-size types
             if self.needs_materialization(&resolved_expr) {
                 // and then check if it will be possible to create temporary storage:
@@ -70,7 +73,12 @@ impl Analyzer<'_> {
                     ArgumentExpression::MaterializedExpression(resolved_expr)
                 } else {
                     // Error
-                    ArgumentExpression::Expression(self.create_err(ErrorKind::CanNotCreateTemporaryStorage, &argument_expr.node))
+                    ArgumentExpression::Expression(
+                        self.create_err(
+                            ErrorKind::CanNotCreateTemporaryStorage,
+                            &argument_expr.node,
+                        ),
+                    )
                 }
             } else {
                 ArgumentExpression::Expression(resolved_expr)

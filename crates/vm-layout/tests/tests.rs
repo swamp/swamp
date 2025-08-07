@@ -36,8 +36,8 @@ use swamp_types::prelude::{
     TypeRef,
 };
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::MemoryOffset;
+use swamp_vm_types::types::BasicTypeKind;
 
 #[test]
 fn test_create_cache() {
@@ -134,7 +134,10 @@ fn test_struct_field_offsets() {
             assert_eq!(struct_type.total_size.0, 12);
 
             // Struct alignment should be 4 bytes (determined by int and string pointer fields)
-            assert_eq!(struct_type.max_alignment, swamp_vm_types::MemoryAlignment::U32);
+            assert_eq!(
+                struct_type.max_alignment,
+                swamp_vm_types::MemoryAlignment::U32
+            );
         }
         _ => panic!("Expected struct type"),
     }
@@ -548,7 +551,12 @@ fn create_test_enum(type_cache: &mut TypeCache) -> TypeRef {
     use source_map_node::Node;
 
     // Create a simple enum with `None` and `Some(Int)` variants
-    let mut enum_type = EnumType::new(Node::default(), "Option", TopLevelSymbolId::new_illegal(), vec!["test".to_string()]);
+    let mut enum_type = EnumType::new(
+        Node::default(),
+        "Option",
+        TopLevelSymbolId::new_illegal(),
+        vec!["test".to_string()],
+    );
 
     let none_variant = EnumVariantType {
         common: EnumVariantCommon {

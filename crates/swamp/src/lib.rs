@@ -9,10 +9,10 @@ use crate::prelude::CompileAndCodeGenOptions;
 use swamp_analyzer::Program;
 use swamp_compile::CompileOptions;
 use swamp_error_report::ScriptResolveError;
-use swamp_runtime::prelude::CodeGenOptions;
 use swamp_runtime::CompileAndMaybeCodeGenResult;
-use swamp_semantic::prelude::Error;
+use swamp_runtime::prelude::CodeGenOptions;
 use swamp_semantic::SemanticError;
+use swamp_semantic::prelude::Error;
 
 #[derive(Debug)]
 pub enum ScriptError {

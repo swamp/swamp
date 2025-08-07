@@ -16,8 +16,8 @@ use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
 use swamp_runtime::{
-    compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions,
-    RunOptions, StandardOnlyHostCallbacks,
+    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions,
+    StandardOnlyHostCallbacks, compile_codegen_and_create_vm,
 };
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
@@ -196,11 +196,17 @@ impl TestResult {
     }
 }
 
-#[must_use] pub fn run_tests_source_map(test_dir: &Path, options: &TestRunOptions,
-                            filter: &str,
-                            module_suffix: &str, ) -> TestResult {
+#[must_use]
+pub fn run_tests_source_map(
+    test_dir: &Path,
+    options: &TestRunOptions,
+    filter: &str,
+    module_suffix: &str,
+) -> TestResult {
     let mut mounts = SeqMap::new();
-    mounts.insert("crate".to_string(), test_dir.to_path_buf()).expect("TODO: panic message");
+    mounts
+        .insert("crate".to_string(), test_dir.to_path_buf())
+        .expect("TODO: panic message");
     let mut source_map = SourceMap::new(&mounts).unwrap();
 
     run_tests(&mut source_map, options, filter, module_suffix)
@@ -333,7 +339,6 @@ pub fn run_tests(
                     }
 
                     let test_info = TestInfo { name: formal_name };
-
 
                     if should_run_in_debug_mode {
                         eprintln!("🚀starting test in debug '{complete_name}'");
@@ -529,10 +534,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
         }
 
-        println!("  Total Tests Run: {total_tests_run}", );
+        println!("  Total Tests Run: {total_tests_run}",);
 
         // ---
         // ## Failing Test Details
