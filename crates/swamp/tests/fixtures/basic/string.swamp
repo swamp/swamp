@@ -296,3 +296,59 @@ fn chars_lookup() {
     assert(middle_char == 0x2728, 'middle char was wrong')
 }
 */
+
+
+enum Action {
+	Move, //steps
+	VenomAttack(Int), //disease amount
+}
+
+enum Keyword {
+	Cloaked,
+	Noble,
+}
+
+enum RegionType {
+	Action(Action),
+	Keyword(Keyword),
+}
+
+struct Region {
+	id: Int,
+	type: RegionType,
+}
+
+struct RegionString {
+	string: String<2048>,
+	regions: Vec<Region;20>
+}
+
+fn get_description(region_type: RegionType) -> RegionString {
+	match region_type {
+		Keyword keyword -> {
+			mut description = RegionString {..}
+			match keyword {
+				Cloaked -> {
+					description.string = "This unit can't be targeted unless it holds the [region 0]objective.[/region]"
+				}
+			}
+			description
+		}
+		_ -> {
+		    RegionString {
+		        string: "hello",
+		        ..
+		    }
+		}
+    }
+}
+
+
+// TODO: look into this bug where strings somewhere is not set properly and is filled with zero.
+#[test]
+fn string_rest() {
+    region_string = get_description(Keyword(Keyword::Noble))
+    print('region_string: {region_string.string}')
+
+    assert(region_string.string.is_empty(), "it should be empty, move is not handled")
+}

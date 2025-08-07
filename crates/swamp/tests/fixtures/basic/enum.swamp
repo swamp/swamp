@@ -567,6 +567,27 @@ fn mixed_to_string() {
     assert(short2 == "StructData { count: 5, value: 100 }", 'mismatch {s2}')
 }
 
+struct DiscriminantTest {
+    d: Int,
+}
+
+#[test]
+fn discriminant() {
+    variant1 = MixedSyntaxEnum::TuplePair(10, 20)
+    d = variant1.discriminant()
+    assert(d == 1, 'wrong discriminant {d}')
+
+    mut x = DiscriminantTest {..}
+
+    variant2 = MixedSyntaxEnum::StructData { count: 5, value: 100 }
+    x.d = variant2.discriminant()
+    assert(x.d == 2, 'wrong discriminant2 {d}')
+
+    variant0 = MixedSyntaxEnum::DirectInt(10)
+    x.d = variant0.discriminant()
+    assert(x.d == 0, 'wrong discriminant2 {d}')
+}
+
 
 // not working yet #[test]
 fn mixed_to_pretty_string() {

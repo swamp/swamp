@@ -23,6 +23,7 @@ use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
 use crate::types::TypeAnalyzeContext;
+use crate::variable::MAX_VIRTUAL_REGISTER;
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
@@ -46,7 +47,6 @@ use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
 use tracing::error;
-use crate::variable::MAX_VIRTUAL_REGISTER;
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -3443,6 +3443,49 @@ impl<'a> Analyzer<'a> {
         found_function.signature().clone()
     }
 
+    fn enum_member_signature(
+        &mut self,
+        self_type: &TypeRef,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Option<(IntrinsicFunction, Signature)> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+
+        let self_mutable_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+
+        let intrinsic_and_signature = match field_name_str {
+            "discriminant" => {
+                (
+                    IntrinsicFunction::EnumDiscriminant,
+                    Signature {
+                        parameters: vec![
+                            self_type_param,
+                        ],
+                        return_type: self.types().int(),
+                    },
+                )
+            }
+            _ => {
+                self.add_err(ErrorKind::UnknownMemberFunction(self_type.clone()), node);
+
+                return None;
+            }
+        };
+
+        Some(intrinsic_and_signature)
+    }
+
+
     fn queue_member_signature(
         &mut self,
         self_type: &TypeRef,
@@ -4238,6 +4281,9 @@ impl<'a> Analyzer<'a> {
                     lambda_variables_count,
                     node,
                 ),
+            TypeKind::Enum(enum_type) => {
+                self.enum_member_signature(ty, field_name_str, node)
+            }
             TypeKind::QueueStorage(element_type, ..) => self.queue_member_signature(
                 type_that_member_is_on,
                 None,

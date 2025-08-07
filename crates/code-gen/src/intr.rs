@@ -9,10 +9,7 @@ use crate::transformer::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
-use swamp_vm_types::types::{
-    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
-    VmType,
-};
+use swamp_vm_types::types::{float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::{
     AggregateMemoryLocation, MemoryLocation, MemoryOffset,
     PointerLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
@@ -1028,6 +1025,46 @@ impl CodeBuilder<'_> {
                     }
                 }
             }
+
+            IntrinsicFunction::EnumDiscriminant => {
+                let enum_pointer = PointerLocation {
+                    ptr_reg: self_reg.unwrap().clone(),
+                };
+
+                let discriminant_temp_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u8_type()), "temp register for fetching discriminant");
+
+                // TODO: @important: Support different sizes of discriminants
+                self.builder.add_ld8_from_pointer_with_offset(
+                    discriminant_temp_reg.register(),
+                    &enum_pointer.ptr_reg,
+                    MemoryOffset(0), // Support proper tag offsets
+                    node,
+                    "get the discriminant from the enum pointer",
+                );
+
+                if target_destination.is_register() {
+                    self.builder.add_mov_reg(
+                        target_destination.register().unwrap(),
+                        &discriminant_temp_reg.register,
+                        node,
+                        "copy discriminant in register to target register",
+                    );
+                } else {
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &discriminant_temp_reg.register,
+                        node,
+                        "store discriminant in register to target memory location",
+                    );
+                }
+            }
+
+            /*
+            IntrinsicFunction::EnumFromDiscriminant => {
+
+            }
+
+             */
 
             IntrinsicFunction::VecPush
             | IntrinsicFunction::VecPop
