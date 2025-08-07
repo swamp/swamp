@@ -2,13 +2,13 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Expression};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Destination, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_binary_operator(
@@ -255,21 +255,23 @@ impl CodeBuilder<'_> {
         node: &Node,
         ctx: &Context,
     ) {
-        let both_are_optionals = left.ty.id.inner() == right.ty.id.inner();
+        let both_are_optionals = matches!(&*left.ty.kind, TypeKind::Optional(_))
+            && matches!(&*right.ty.kind, TypeKind::Optional(_));
 
         let left_optional_basic_type = self.state.layout_cache.layout(&left.ty);
 
+        let destination_storage: Destination; // so it lives long enough
         let destination_to_use = if both_are_optionals {
             dest
         } else {
-            let pointer_location = self.allocate_frame_space_and_return_pointer_location(
+            destination_storage = self.allocate_frame_space_and_return_destination_to_it(
                 &left_optional_basic_type,
                 node,
-                "?? right hand side is NOT optional. need temp storage for the left hand side",
+                "?? left temp storage for tag + payload",
             );
-
-            &Destination::Memory(pointer_location.memory_location())
+            &destination_storage
         };
+
 
         self.emit_expression(destination_to_use, left, ctx);
 
