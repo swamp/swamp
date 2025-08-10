@@ -8,9 +8,10 @@ use seq_map::SeqMap;
 use source_map_node::Node;
 use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_vm_debug_info::DebugInfo;
+use swamp_vm_isa::InstructionPosition;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{CompleteFunctionInfo, FunctionInfo, FunctionInfoKind, HeapPlacedType};
-use swamp_vm_types::{InstructionPosition, InstructionPositionOffset, PatchPosition};
+use swamp_vm_types::{InstructionPositionOffset, PatchPosition};
 use tracing::info;
 
 pub struct GenOptions {

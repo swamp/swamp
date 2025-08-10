@@ -6,8 +6,9 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
+use swamp_vm_isa::MemoryOffset;
 use swamp_vm_types::types::{BasicTypeRef, Destination, VmType};
-use swamp_vm_types::{MemoryLocation, MemoryOffset, PointerLocation};
+use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.

@@ -9,6 +9,7 @@ repository = "https://github.com/swamp/swamp"
 [dependencies]
 # Swamp VM
 swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
 swamp-vm-instr-build = { path = "../vm-instr-build", version = "0.2.23" }
 swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.23" }
 swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.23" }

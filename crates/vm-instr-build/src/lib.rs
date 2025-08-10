@@ -3,17 +3,16 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_node::Node;
-use swamp_vm_types::opcode::OpCode;
+use swamp_vm_isa::opcode::OpCode;
+use swamp_vm_isa::{BinaryInstruction, FrameMemorySize, HeapMemoryAddress, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta};
 use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
-pub use swamp_vm_types::{
-    BinaryInstruction, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    HEAP_PTR_ON_FRAME_SIZE, HeapMemoryOffset, HeapMemoryRegion, InstructionPosition,
-    InstructionPositionOffset, MemoryOffset, MemorySize, Meta, PatchPosition, RANGE_HEADER_SIZE,
-    RANGE_ITERATOR_SIZE, ZFlagPolarity,
-};
 use swamp_vm_types::{
-    CountU16, HeapMemoryAddress, MemoryAlignment, MemoryLocation, PointerLocation,
-    ProgramCounterDelta,
+    CountU16, MemoryLocation, PointerLocation,
+};
+pub use swamp_vm_types::{
+    FrameMemoryAddress, FrameMemoryRegion,
+    HeapMemoryOffset, InstructionPositionOffset,
+    Meta, PatchPosition, ZFlagPolarity,
 };
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).

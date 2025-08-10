@@ -8,5 +8,5 @@ repository = "https://github.com/swamp/swamp"
 
 [dependencies]
 swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
-
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
 source-map-node = "0.0.1"

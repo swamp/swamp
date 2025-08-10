@@ -5,8 +5,9 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
-use swamp_vm_types::{MemoryLocation, MemoryOffset};
+use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{b8_type, u8_type, BasicTypeKind, Destination, VmType};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]

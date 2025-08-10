@@ -7,8 +7,9 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_types::TypeRef;
+use swamp_vm_isa::MemoryOffset;
 use swamp_vm_types::types::{BasicTypeKind, VmType};
-use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_tuple_literal_into_memory(
@@ -59,8 +60,7 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {
-            } else {
+            if target_variable.is_unused {} else {
                 let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 

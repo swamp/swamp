@@ -4,18 +4,18 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::mem::discriminant;
 use std::ptr;
 use std::str::FromStr;
-use swamp_vm_types::opcode::OpCode;
-use swamp_vm_types::{BinaryInstruction, InstructionPosition};
+use swamp_vm_isa::opcode::OpCode;
+use swamp_vm_isa::{BinaryInstruction, InstructionPosition};
 
 mod grid;
 pub mod host;

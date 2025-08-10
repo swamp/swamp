@@ -10,16 +10,17 @@ use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
-    SpilledRegisterRegion, err,
+    err, ArgumentAndTempScope, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
+use swamp_vm_isa::REG_ON_FRAME_SIZE;
 use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
-use swamp_vm_types::{FrameMemoryRegion, REG_ON_FRAME_SIZE};
+use swamp_vm_types::FrameMemoryRegion;
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,
@@ -427,7 +428,7 @@ impl CodeBuilder<'_> {
 
                             let specific_mem_location = FrameMemoryRegion {
                                 addr: region.frame_memory_region.addr
-                                    + swamp_vm_types::MemoryOffset(memory_offset as u32),
+                                    + swamp_vm_isa::MemoryOffset(memory_offset as u32),
                                 size: REG_ON_FRAME_SIZE,
                             };
 
@@ -493,7 +494,7 @@ impl CodeBuilder<'_> {
 
                         let specific_mem_location = FrameMemoryRegion {
                             addr: base_mem_addr_of_spilled_range
-                                + swamp_vm_types::MemoryOffset(seq_start_offset as u32),
+                                + swamp_vm_isa::MemoryOffset(seq_start_offset as u32),
                             size: REG_ON_FRAME_SIZE,
                         };
 
@@ -539,7 +540,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {

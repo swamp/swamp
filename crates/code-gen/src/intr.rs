@@ -9,15 +9,15 @@ use crate::transformer::{Collection, Transformer};
 use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
+use swamp_vm_isa::{
+    MemoryOffset, COLLECTION_CAPACITY_OFFSET,
+    COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET,
+};
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
-    u32_type,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
+    VmType,
 };
-use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
-    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET, MemoryLocation, MemoryOffset,
-    PointerLocation,
-};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]

@@ -18,16 +18,17 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
-use swamp_vm_types::types::BasicTypeKind;
-use swamp_vm_types::types::{
-    BasicTypeRef, Destination, TypedRegister, VmType, b8_type, u8_type, u32_type,
-};
-use swamp_vm_types::{
-    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, AggregateMemoryLocation,
-    FrameMemoryRegion, FrameMemorySize, MemoryLocation, MemoryOffset, MemorySize, PointerLocation,
+use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_isa::{
+    FrameMemorySize,
+    MemoryOffset, MemorySize, ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET,
     REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
+use swamp_vm_types::types::BasicTypeKind;
+use swamp_vm_types::types::{
+    b8_type, u32_type, u8_type, BasicTypeRef, Destination, TypedRegister, VmType,
+};
+use swamp_vm_types::{AggregateMemoryLocation, FrameMemoryRegion, MemoryLocation, PointerLocation};
 use tracing::info;
 
 #[derive(Copy, Clone)]

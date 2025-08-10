@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use seq_map::SeqMap;
+use swamp_vm_isa::InstructionPosition;
 use swamp_vm_types::types::FunctionInfo;
-use swamp_vm_types::{InstructionPosition, Meta};
+use swamp_vm_types::Meta;
 
 pub struct FileOffsetEntry {
     pub start_pc: u32, // This u32 is the instruction index, so this should be plenty

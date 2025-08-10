@@ -5,8 +5,9 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::Expression;
+use swamp_vm_isa::MemoryOffset;
 use swamp_vm_types::types::VmType;
-use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, MemoryOffset};
+use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation};
 
 impl CodeBuilder<'_> {
     /// Emits code to evaluate an expression and return a memory location for the aggregate.

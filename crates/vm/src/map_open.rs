@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
+use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
 use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
-use swamp_vm_types::MapIterator;
+use swamp_vm_isa::MapIterator;
 
 impl Vm {
     pub fn get_map_header(&self, header_reg: u8) -> *mut MapHeader {

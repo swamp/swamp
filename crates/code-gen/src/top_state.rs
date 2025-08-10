@@ -12,10 +12,11 @@ use swamp_semantic::{ConstantId, ConstantRef, InternalFunctionId};
 use swamp_attributes::Attributes;
 use swamp_vm_debug_info::{DebugInfo, FunctionDebugInfo};
 use swamp_vm_instr_build::{InstructionBuilderState, PatchPosition};
-use swamp_vm_types::types::FunctionInfoKind;
-use swamp_vm_types::{
-    BinaryInstruction, InstructionPosition, InstructionPositionOffset, InstructionRange, Meta,
+use swamp_vm_isa::{
+    BinaryInstruction, InstructionPosition,
 };
+use swamp_vm_types::types::FunctionInfoKind;
+use swamp_vm_types::{InstructionPositionOffset, InstructionRange, Meta};
 use tracing::error;
 
 /// Top-level container that owns both states

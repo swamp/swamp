@@ -7,8 +7,9 @@ use crate::ctx::Context;
 use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
-use swamp_vm_types::types::{Destination, VmType, u8_type};
-use swamp_vm_types::{MemoryLocation, MemoryOffset};
+use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{u8_type, Destination, VmType};
+use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
     /// Handles the final load/conversion from `current_location` to `output_destination` if needed.

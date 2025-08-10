@@ -3,10 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use swamp_types::TypeRef;
+use swamp_vm_isa::{MemoryAlignment, MemorySize};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{BasicTypeRef, FramePlacedType};
 use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion, MemoryAlignment, MemorySize, align_frame_addr,
+    align_frame_addr, FrameMemoryAddress, FrameMemoryRegion,
 };
 use tracing::error;
 

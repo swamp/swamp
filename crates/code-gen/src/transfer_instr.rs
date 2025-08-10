@@ -4,8 +4,9 @@
  */
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
+use swamp_vm_isa::HeapMemoryAddress;
 use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
-use swamp_vm_types::{HeapMemoryAddress, MemoryLocation, PointerLocation};
+use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits a Swamp VM instruction to load a **scalar** value from a memory location defined by a
@@ -46,7 +47,7 @@ impl CodeBuilder<'_> {
                     &format!("{comment} (load bool)"),
                 );
             }
-            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",),
+            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}", ),
         }
     }
 
@@ -191,7 +192,7 @@ impl CodeBuilder<'_> {
                     node,
                     comment,
                 )
-                .ptr_reg
+                    .ptr_reg
             }
             Destination::Unit => {
                 panic!("can not compute effective address from unit")

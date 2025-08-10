@@ -4,8 +4,8 @@
  */
 use crate::ALIGNMENT;
 use std::{alloc, mem, ptr, slice};
-use swamp_vm_types::aligner::{SAFE_ALIGNMENT, align};
-use swamp_vm_types::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
+use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
+use swamp_vm_isa::{HeapMemoryAddress, HeapMemoryRegion, MemoryAlignment, MemorySize};
 
 /// Execution mode for the VM memory
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

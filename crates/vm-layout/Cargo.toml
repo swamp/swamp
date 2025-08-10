@@ -13,6 +13,7 @@ readme = "README.md"
 [dependencies]
 swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
 swamp-types = { path = "../types", version = "0.2.23" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
 swamp-symbol = { path = "../symbol", version = "0.2.23" }
 seq-map = "0.0.14"
 sparse-mem = "0.2.0"

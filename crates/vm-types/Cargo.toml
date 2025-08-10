@@ -12,5 +12,6 @@ yansi = "1.0.1"
 tracing = "0.1.40"
 seq-fmt = "0.0.1"
 tinter = "0.1.0"
-hashmap-mem = "0.2.0"
+
 fxhash = "0.2.1"
+swamp-vm-isa = { path = "../vm-isa" }

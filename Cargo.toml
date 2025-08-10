@@ -43,7 +43,11 @@ members = [
     "crates/vm-layout",
     # CLI
     "crates/swamp-test",
-    "crates/swamp-build", "crates/symbol", "crates/refs", "crates/yini",
+    "crates/swamp-build",
+    "crates/symbol",
+    "crates/refs",
+    "crates/yini",
+    "crates/vm-isa",
     # Future projects
     # "crates/lexer",
     # "crates/parser-next",

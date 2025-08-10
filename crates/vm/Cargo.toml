@@ -8,15 +8,13 @@ repository = "https://github.com/swamp/swamp"
 
 
 [dependencies]
-swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
+sparse-mem = "0.2.0"
+hashmap-mem = "0.2.0"
 
 fixed32 = "0.0.18"
 squirrel-prng = "0.0.1"
 tinter = "0.1.0"
-
-
-sparse-mem = "0.2.0"
-hashmap-mem = "0.2.0"
 
 [features]
 debug_vm = []  # Enable VM debug output

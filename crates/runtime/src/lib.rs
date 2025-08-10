@@ -14,9 +14,9 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
+use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
 pub use swamp_compile::CompileOptions;
-use swamp_dep_loader::{RunMode, swamp_registry_path};
+use swamp_dep_loader::{swamp_registry_path, RunMode};
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_std::pack::pack;
 use swamp_std::print::print_fn;
@@ -26,9 +26,10 @@ use swamp_vm::memory::ExecutionMode;
 use swamp_vm::{TrapCode, Vm, VmSetup, VmState};
 use swamp_vm_debug_info::{DebugInfo, DebugInfoForPc};
 use swamp_vm_disasm::{disasm_color, display_lines};
+use swamp_vm_isa::{BinaryInstruction, InstructionPosition};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
-use swamp_vm_types::{BinaryInstruction, InstructionPosition, InstructionRange};
+use swamp_vm_types::InstructionRange;
 
 pub struct RunConstantsOptions {
     pub stderr_adapter: Option<Box<dyn FmtWrite>>,
@@ -57,8 +58,7 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant.target_constant_memory.ty().is_scalar() {
-        } else {
+        if constant.target_constant_memory.ty().is_scalar() {} else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -493,7 +493,7 @@ pub fn run_function_with_debug(
             if use_color {
                 print!(
                     "{}",
-                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(),))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(), ))
                 );
 
                 for reg in regs {

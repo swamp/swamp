@@ -3,19 +3,20 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::FrameAndVariableInfo;
 use crate::alloc::StackFrameAllocator;
+use crate::FrameAndVariableInfo;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
 use swamp_semantic::{VariableScopes, VariableType};
 use swamp_types::TypeRef;
+use swamp_vm_isa::MemorySize;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
     FrameAddressInfo, FrameMemoryInfo, TypedRegister, VariableInfo, VariableInfoKind,
     VariableRegister, VmType,
 };
-use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, MemorySize};
+use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion};
 
 /// # Errors
 ///
@@ -69,7 +70,7 @@ pub fn layout_variables(
                     var_frame_placed_type.size().0,
                     var_ref.assigned_name
                 )
-                .unwrap();
+                    .unwrap();
 
                 frame_memory_infos.push(FrameAddressInfo {
                     kind,

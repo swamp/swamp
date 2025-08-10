@@ -4,12 +4,12 @@
  */
 
 use std::rc::Rc;
-use swamp_vm_types::prelude::{BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef};
-use swamp_vm_types::{
-    MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize,
+use swamp_vm_isa::{
+    MemoryAlignment, MemorySize, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SPARSE_ITERATOR_ALIGNMENT, SPARSE_ITERATOR_SIZE,
     STRING_ITERATOR_ALIGNMENT, STRING_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
+use swamp_vm_types::prelude::{BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef};
 
 #[derive(Copy, Clone, Debug)]
 pub enum Transformer {

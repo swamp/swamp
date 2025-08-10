@@ -10,16 +10,17 @@ use std::rc::Rc;
 use swamp_symbol::TopLevelSymbolId;
 use swamp_types::prelude::{AnonymousStructType, EnumType, EnumVariantType, NamedStructType};
 use swamp_types::{TypeId, TypeKind, TypeRef};
+use swamp_vm_isa::{
+    MemoryAlignment, MemoryOffset,
+    MemorySize, ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE, MAP_HEADER_ALIGNMENT,
+    PTR_ALIGNMENT, PTR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE,
+    VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
+};
 use swamp_vm_types::types::{
     BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, StructType, TaggedUnion,
     TaggedUnionVariant, TupleType,
 };
-use swamp_vm_types::{
-    ANY_HEADER_ALIGNMENT, ANY_HEADER_SIZE, CountU16, GRID_HEADER_ALIGNMENT, GRID_HEADER_SIZE,
-    MAP_HEADER_ALIGNMENT, MemoryAlignment, MemoryOffset, MemorySize, PTR_ALIGNMENT, PTR_SIZE,
-    STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_ALIGNMENT, VEC_HEADER_SIZE,
-    adjust_size_to_alignment, align_to,
-};
+use swamp_vm_types::{adjust_size_to_alignment, align_to, CountU16};
 
 #[derive(Clone)]
 pub struct LayoutCache {

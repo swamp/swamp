@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use std::mem::size_of;
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, string_type};
-use swamp_vm_types::{HeapMemoryAddress, VEC_HEADER_MAGIC_CODE, VecHeader};
+use swamp_vm_isa::{HeapMemoryAddress, VecHeader, VEC_HEADER_MAGIC_CODE};
+use swamp_vm_types::types::{string_type, BasicTypeKind, Destination, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(

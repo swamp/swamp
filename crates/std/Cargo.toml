@@ -9,5 +9,5 @@ description = "Standard i/o functions for Swamp"
 [dependencies]
 swamp-vm = { path = "../vm", version = "0.2.23" }
 swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
-
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
 [dev-dependencies]

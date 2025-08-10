@@ -1,0 +1,7 @@
+[package]
+name = "swamp-vm-isa"
+version = "0.2.23"
+edition = "2024"
+
+[dependencies]
+hashmap-mem = "0.2.0"

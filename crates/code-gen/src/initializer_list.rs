@@ -6,10 +6,10 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
+use swamp_vm_isa::{MemoryOffset, COLLECTION_ELEMENT_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
 use swamp_vm_types::types::{BasicTypeRef, Destination};
 use swamp_vm_types::{
-    AggregateMemoryLocation, COLLECTION_ELEMENT_COUNT_OFFSET, MemoryLocation, MemoryOffset,
-    PointerLocation, VEC_HEADER_PAYLOAD_OFFSET,
+    AggregateMemoryLocation, MemoryLocation, PointerLocation,
 };
 
 impl CodeBuilder<'_> {

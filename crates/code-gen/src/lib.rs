@@ -60,13 +60,14 @@ use swamp_semantic::{
     InternalFunctionDefinitionRef, InternalFunctionId, VariableScopes,
 };
 use swamp_types::TypeRef;
+use swamp_vm_isa::{InstructionPosition, MemorySize};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{
     BasicTypeRef, FrameMemoryInfo, FramePlacedType, FunctionInfoKind, HeapPlacedType,
     TypedRegister, VmType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryRegion, InstructionPosition, InstructionRange, MemorySize,
+    CountU16, FrameMemoryRegion, InstructionRange,
     TempFrameMemoryAddress, ZFlagPolarity,
 };
 
