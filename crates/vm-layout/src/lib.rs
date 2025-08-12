@@ -292,6 +292,9 @@ impl LayoutCache {
             TypeKind::Never => {
                 create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(0), MemoryAlignment::U8)
             }
+            TypeKind::Pointer(_) => {
+                create_basic_type(ty.id, BasicTypeKind::Pointer, MemorySize(4), MemoryAlignment::U32)
+            }
             TypeKind::Byte => {
                 create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(1), MemoryAlignment::U8)
             }
@@ -319,7 +322,7 @@ impl LayoutCache {
                 create_basic_type(ty.id, BasicTypeKind::B8, MemorySize(1), MemoryAlignment::U8)
             }
 
-            TypeKind::String(byte, char) => create_basic_type(
+            TypeKind::StringView(byte, char) => create_basic_type(
                 ty.id,
                 BasicTypeKind::StringView {
                     byte: self.layout(byte),

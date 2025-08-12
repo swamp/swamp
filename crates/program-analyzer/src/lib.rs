@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use source_map_cache::SourceMap;
-use swamp_analyzer::Analyzer;
 use swamp_analyzer::prelude::Program;
-use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order};
+use swamp_analyzer::{Analyzer, AnalyzerOptions};
+use swamp_dep_loader::{parse_local_modules_and_get_order, DependencyParser, ParsedAstModule};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;
@@ -36,6 +36,7 @@ pub fn analyze_module(
     source_map: &SourceMap,
     module_path: &[String],
     ast_module: &ParsedAstModule,
+    options: AnalyzerOptions,
 ) -> Result<(DefinitionTable, Vec<Error>, Option<InternalMainExpression>), LoaderErr> {
     //debug!(?module_path, "analyze module");
     let debug_string = format!("analyze module {module_path:?}");
@@ -48,6 +49,7 @@ pub fn analyze_module(
         source_map,
         module_path,
         ast_module.file_id,
+        options,
     );
 
     analyzer.shared.lookup_table = default_lookup_symbol_table.clone();
@@ -85,6 +87,7 @@ pub fn analyze_modules_in_order(
     source_map: &SourceMap,
     module_paths_in_order: &[Vec<String>],
     parsed_modules: &DependencyParser,
+    options: AnalyzerOptions,
 ) -> Result<(), LoaderErr> {
     debug!(?module_paths_in_order, "analyzing modules in order");
     for module_path in module_paths_in_order {
@@ -103,6 +106,7 @@ pub fn analyze_modules_in_order(
                 source_map,
                 module_path,
                 parse_module,
+                options,
             )?;
 
             let analyzed_module = Module::new(
@@ -128,6 +132,7 @@ pub fn compile_and_analyze_all_modules(
     resolved_program: &mut Program,
     source_map: &mut SourceMap,
     core_symbol_table: &SymbolTableRef,
+    options: AnalyzerOptions,
 ) -> Result<(), LoaderErr> {
     let mut dependency_parser = DependencyParser::new();
 
@@ -142,6 +147,7 @@ pub fn compile_and_analyze_all_modules(
         source_map,
         &module_paths_in_order,
         &dependency_parser,
+        options,
     )?;
 
     Ok(())

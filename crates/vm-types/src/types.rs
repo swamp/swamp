@@ -190,6 +190,7 @@ pub struct MemoryElement {
 #[derive(Clone, Debug)]
 pub enum BasicTypeKind {
     Empty,
+    Pointer,
     U8,
     B8,
     U16,
@@ -304,9 +305,20 @@ impl BasicTypeKind {
                 | Self::S32
                 | Self::U32
                 | Self::Fixed32
-                | Self::StringView { .. }
         )
     }
+
+    pub const fn is_reg_copy(&self) -> bool {
+        self.is_scalar() || self.is_view()
+    }
+
+    pub const fn is_view(&self) -> bool {
+        match self {
+            BasicTypeKind::GridView(_) | BasicTypeKind::DynamicLengthMapView(_, _) | BasicTypeKind::SparseView(_) | BasicTypeKind::DynamicLengthVecView(_) | BasicTypeKind::SliceView(_) | BasicTypeKind::StringView { .. } => true,
+            _ => false
+        }
+    }
+
 
     #[must_use]
     pub const fn is_aggregate(&self) -> bool {
@@ -341,6 +353,7 @@ impl Display for BasicTypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Empty => write!(f, "()"),
+            Self::Pointer => write!(f, "Ptr"),
             Self::Any => write!(f, "Any"),
             Self::U8 => write!(f, "u8"),
             Self::B8 => write!(f, "b8"),
@@ -989,8 +1002,6 @@ pub struct VmType {
     pub origin: VmTypeOrigin,
 }
 
-impl VmType {}
-
 impl VmType {
     #[must_use]
     pub fn is_collection_like(&self) -> bool {
@@ -1102,16 +1113,18 @@ impl VmType {
         self.basic_type.is_scalar()
     }
 
+    pub fn is_reg_copy(&self) -> bool {
+        self.basic_type.is_reg_copy()
+    }
+
     #[must_use]
     pub fn needs_allocated_space_for_return_in_reg0(&self) -> bool {
         self.basic_type.is_aggregate()
-            && !matches!(self.basic_type.kind, BasicTypeKind::StringView { .. })
     }
 
     #[must_use]
     pub fn needs_copy_back_for_mutable(&self) -> bool {
         !self.basic_type.is_aggregate()
-            || matches!(self.basic_type.kind, BasicTypeKind::StringView { .. })
     }
     #[must_use]
     pub const fn basic_type(&self) -> &BasicTypeRef {
@@ -1240,13 +1253,13 @@ impl BasicType {
         matches!(
             self.kind,
             BasicTypeKind::VecStorage(..)
+                | BasicTypeKind::DynamicLengthVecView(..)
                 | BasicTypeKind::StringStorage { .. }
+                | BasicTypeKind::StringView { .. }
                 | BasicTypeKind::StackStorage(..)
                 | BasicTypeKind::QueueStorage(..)
-                | BasicTypeKind::StringView { .. }
                 | BasicTypeKind::SliceView(..)
                 | BasicTypeKind::FixedCapacityArray(..)
-                | BasicTypeKind::DynamicLengthVecView(..)
         )
     }
 
@@ -1261,6 +1274,7 @@ impl BasicType {
             self.kind,
             BasicTypeKind::VecStorage(..)
                 | BasicTypeKind::StringStorage { .. }
+                | BasicTypeKind::StringView { .. }
                 | BasicTypeKind::SliceView(..)
                 | BasicTypeKind::FixedCapacityArray(..)
                 | BasicTypeKind::DynamicLengthVecView(..)
@@ -1307,6 +1321,10 @@ impl BasicType {
         matches!(
             self.kind,
             BasicTypeKind::FixedCapacityArray(..)
+            // String
+            | BasicTypeKind::StringView { .. }
+            | BasicTypeKind::StringStorage { .. }
+
             // Vec
             | BasicTypeKind::VecStorage(..)
             | BasicTypeKind::StackStorage(..)
@@ -1382,6 +1400,11 @@ impl BasicType {
     #[must_use]
     pub const fn is_scalar(&self) -> bool {
         self.kind.is_scalar()
+    }
+
+    #[must_use]
+    pub const fn is_reg_copy(&self) -> bool {
+        self.kind.is_reg_copy()
     }
 
     #[must_use]
@@ -1889,6 +1912,7 @@ pub fn write_basic_type(
 ) -> std::fmt::Result {
     match &ty.kind {
         BasicTypeKind::Any => write!(f, "Any"),
+        BasicTypeKind::Pointer => write!(f, "Ptr"),
         BasicTypeKind::Empty => write!(f, "()"),
         BasicTypeKind::U8 => write!(f, "{}", "u8".white()),
         BasicTypeKind::B8 => write!(f, "{}", "b8".white()),
@@ -2060,6 +2084,7 @@ impl Hash for BasicTypeKind {
 
         match self {
             Self::Any => {}
+            Self::Pointer => {}
             Self::Empty => {}
             Self::U8 => {}
             Self::B8 => {}

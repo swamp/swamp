@@ -42,7 +42,7 @@ pub fn layout_variables(
     for var_ref in &scopes.all_variables {
         let basic_type = layout_cache.layout(&var_ref.resolved_type);
 
-        let vm_type = if basic_type.is_aggregate() {
+        let vm_type = if !basic_type.is_reg_copy() {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
             swamp_vm_layout::check_type_size(
                 &basic_type,

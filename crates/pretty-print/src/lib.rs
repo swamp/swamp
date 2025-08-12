@@ -309,7 +309,7 @@ impl SourceMapDisplay<'_> {
     /// # Errors
     ///
     pub fn show_alias(&self, f: &mut Formatter<'_>, alias: &AliasType) -> std::fmt::Result {
-        write!(f, "{} ==> ", alias.assigned_name.blue(),)?;
+        write!(f, "{} ==> ", alias.assigned_name.blue(), )?;
 
         self.show_type_short(f, &alias.ty, 0)?;
 
@@ -664,10 +664,11 @@ impl SourceMapDisplay<'_> {
         match &*resolved_type.kind {
             TypeKind::Never => write!(f, "{}", "!".bright_blue()),
             TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
+            TypeKind::Pointer(_) => write!(f, "{}", "Ptr".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
-            TypeKind::String(..) => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringView(..) => write!(f, "{}", "String".bright_blue()),
             TypeKind::StringStorage(_, char, size) => write!(f, "string[{size}]"),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
             TypeKind::Bool => write!(f, "{}", "Bool".bright_blue()),
@@ -725,12 +726,13 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
             TypeKind::Never => write!(f, "{}", "!".bright_blue()),
+            TypeKind::Pointer(_) => write!(f, "{}", "Pointer".bright_blue()),
             TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
-            TypeKind::String(..) => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringView(..) => write!(f, "{}", "String".bright_blue()),
             TypeKind::StringStorage(_, char, size) => {
                 write!(f, "{}[{size}]", "StringStorage".bright_blue())
             }
@@ -786,12 +788,13 @@ impl SourceMapDisplay<'_> {
     ) -> std::fmt::Result {
         match &*resolved_type.kind {
             TypeKind::Never => write!(f, "{}", "!".bright_blue()),
+            TypeKind::Pointer(_) => write!(f, "{}", "Ptr".bright_blue()),
             TypeKind::Any => write!(f, "{}", "Any".bright_blue()),
             TypeKind::Byte => write!(f, "{}", "Byte".bright_blue()),
             TypeKind::Codepoint => write!(f, "{}", "Codepoint".bright_blue()),
             TypeKind::Int => write!(f, "{}", "Int".bright_blue()),
             TypeKind::Float => write!(f, "{}", "Float".bright_blue()),
-            TypeKind::String(..) => write!(f, "{}", "String".bright_blue()),
+            TypeKind::StringView(..) => write!(f, "{}", "String".bright_blue()),
             TypeKind::StringStorage(_, _char, size) => {
                 write!(f, "{}[{size}]", "String".bright_blue())
             }
@@ -1056,7 +1059,7 @@ impl SourceMapDisplay<'_> {
         source_order_expressions: &Vec<(usize, Option<Node>, Expression)>,
         tabs: usize,
     ) -> std::fmt::Result {
-        write!(f, "{{",)?;
+        write!(f, "{{", )?;
 
         // Extract the anonymous struct fields from the TypeRef
         let field_name_sorted_fields = match &*struct_like_type.kind {

@@ -273,10 +273,6 @@ impl HostArgs {
                 panic!("Invalid vector header - memory corruption detected");
             }
 
-            if header.capacity == 0 {
-                panic!("Vector was never initialized");
-            }
-
             (header.element_count, header.capacity, header.element_size)
         };
 
@@ -332,10 +328,6 @@ impl HostArgs {
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
-        }
-
-        if vec_header.capacity == 0 {
-            panic!("Vector was never initialized");
         }
 
         // Bounds check
@@ -409,10 +401,6 @@ impl HostArgs {
             panic!("Invalid vector header - memory corruption detected");
         }
 
-        if vec_header.capacity == 0 {
-            panic!("Vector was never initialized");
-        }
-
         // Bounds check
         if index >= vec_header.element_count {
             panic!(
@@ -461,10 +449,6 @@ impl HostArgs {
             panic!("Invalid vector header - memory corruption detected");
         }
 
-        if vec_header.capacity == 0 {
-            panic!("Vector was never initialized");
-        }
-
         vec_header.element_count
     }
 
@@ -484,10 +468,6 @@ impl HostArgs {
         // Validate the vector header
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             panic!("Invalid vector header - memory corruption detected");
-        }
-
-        if vec_header.capacity == 0 {
-            panic!("Vector was never initialized");
         }
 
         vec_header.capacity

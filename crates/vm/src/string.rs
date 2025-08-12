@@ -2,6 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::memory::ExecutionMode;
 use crate::memory::Memory;
 use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
 use std::num::ParseIntError;
@@ -28,9 +29,9 @@ impl Vm {
         let byte_count = header.element_count;
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_operations_enabled {
+        if true || self.debug_operations_enabled {
             eprintln!(
-                "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
+                "get string Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
                 self.memory().constant_memory_size,
                 self.memory().stack_start,
                 self.memory().stack_offset,
@@ -62,8 +63,8 @@ impl Vm {
             if byte_count > 0 {
                 let s = std::str::from_utf8(bytes).unwrap_or("INVALID_UTF8");
                 #[cfg(feature = "debug_vm")]
-                if self.debug_operations_enabled {
-                    eprintln!("String content: \"{s}\"");
+                if true || self.debug_operations_enabled {
+                    eprintln!("String content: \"{s}\" at addr {string_header_addr:X}");
                 }
             }
 
@@ -80,7 +81,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_append(&mut self, target_string_reg: u8, string_a: u8, string_b: u8) {
         #[cfg(feature = "debug_vm")]
-        if self.debug_operations_enabled {
+        if true || self.debug_operations_enabled {
             eprintln!("=== STRING_APPEND OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
@@ -106,7 +107,7 @@ impl Vm {
         let result = str_a.to_string() + str_b;
 
         #[cfg(feature = "debug_vm")]
-        if self.debug_operations_enabled {
+        if true || self.debug_operations_enabled {
             eprintln!(
                 "Concatenated string: \"{}\" (length: {})",
                 result,
@@ -118,7 +119,7 @@ impl Vm {
         // Debug: Print final register value
         let final_reg_value = get_reg!(self, target_string_reg);
         #[cfg(feature = "debug_vm")]
-        if self.debug_operations_enabled {
+        if true || self.debug_operations_enabled {
             eprintln!("Final target register value: 0x{final_reg_value:X}");
         }
     }
@@ -466,9 +467,6 @@ impl Vm {
 
         if string_header.padding != VEC_HEADER_MAGIC_CODE {
             return self.internal_trap(TrapCode::MemoryCorruption);
-        }
-        if string_header.capacity == 0 {
-            return self.internal_trap(TrapCode::VecNeverInitialized);
         }
 
         #[cfg(feature = "debug_vm")]

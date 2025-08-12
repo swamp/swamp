@@ -28,8 +28,7 @@ impl CodeBuilder<'_> {
         match underlying_scalar.kind {
             BasicTypeKind::Fixed32
             | BasicTypeKind::U32
-            | BasicTypeKind::S32
-            | BasicTypeKind::StringView { byte: _, char: _ } => {
+            | BasicTypeKind::S32 => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     target,
                     &source_location.base_ptr_reg,
@@ -115,8 +114,7 @@ impl CodeBuilder<'_> {
             }
             BasicTypeKind::U32
             | BasicTypeKind::S32
-            | BasicTypeKind::Fixed32
-            | BasicTypeKind::StringView { byte: _, char: _ } => {
+            | BasicTypeKind::Fixed32 => {
                 self.builder.add_st32_using_ptr_with_offset(
                     memory_location,
                     primitive_reg,
@@ -125,7 +123,16 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            _ => panic!("must be scalar {underlying} {}", primitive_reg.ty),
+            _ => if underlying.kind.is_reg_copy() {
+                self.builder.add_st32_using_ptr_with_offset(
+                    memory_location,
+                    primitive_reg,
+                    node,
+                    comment,
+                );
+            } else {
+                panic!("must be scalar {underlying} {}", primitive_reg.ty);
+            }
         }
     }
 

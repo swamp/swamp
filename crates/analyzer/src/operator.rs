@@ -79,7 +79,7 @@ impl Analyzer<'_> {
 
             (
                 &BinaryOperatorKind::Multiply,
-                TypeKind::StringStorage(..) | TypeKind::String(..),
+                TypeKind::StringStorage(..) | TypeKind::StringView(..),
                 TypeKind::Int,
             ) => Some((
                 BinaryOperator {
@@ -100,6 +100,23 @@ impl Analyzer<'_> {
                 if *inner.kind != TypeKind::Byte {
                     return None;
                 }
+                Some((
+                    BinaryOperator {
+                        left: Box::new(left),
+                        right: Box::new(right),
+                        kind,
+                        node,
+                    },
+                    self.shared.state.types.string(),
+                ))
+            }
+
+            // String concatenation - allow any type on the right
+            (
+                &BinaryOperatorKind::Add,
+                TypeKind::StringStorage(..) | TypeKind::StringView(..),
+                TypeKind::StringStorage(..) | TypeKind::StringView(..),
+            ) => {
                 Some((
                     BinaryOperator {
                         left: Box::new(left),

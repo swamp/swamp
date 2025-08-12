@@ -1,0 +1,4 @@
+#[test]
+fn ptr_test() {
+    p = Ptr::from_u32(23)
+}

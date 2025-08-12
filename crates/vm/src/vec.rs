@@ -74,16 +74,8 @@ impl Vm {
             if (*left_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
-            if (*left_vec_ptr).capacity == 0 {
-                eprintln!("TARGET IS NOT INITIALIZED");
-                return self.internal_trap(TrapCode::VecNeverInitialized);
-            }
             if (*right_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
-            }
-            if (*right_vec_ptr).capacity == 0 {
-                eprintln!("SOURCE IS NOT INITIALIZED");
-                return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
             if (*left_vec_ptr).element_count != (*right_vec_ptr).element_count {
@@ -114,6 +106,12 @@ impl Vm {
         let target_vec_addr = get_reg!(self, target_vec_ptr_reg);
         let source_vec_addr = get_reg!(self, source_vec_ptr_reg);
 
+        #[cfg(feature = "debug_vm")]
+        if true || self.debug_operations_enabled {
+            eprintln!("vec_copy {target_vec_addr:X} <- {source_vec_addr:X}")
+        }
+
+
         let mut_vec_ptr = self
             .memory
             .get_heap_ptr(target_vec_addr as usize)
@@ -128,16 +126,8 @@ impl Vm {
             if (*mut_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
-            if (*mut_vec_ptr).capacity == 0 {
-                eprintln!("TARGET IS NOT INITIALIZED");
-                return self.internal_trap(TrapCode::VecNeverInitialized);
-            }
             if (*src_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
-            }
-            if (*src_vec_ptr).capacity == 0 {
-                eprintln!("SOURCE IS NOT INITIALIZED");
-                return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
             if (*mut_vec_ptr).capacity < (*src_vec_ptr).element_count {
@@ -145,6 +135,19 @@ impl Vm {
                     encountered: (*src_vec_ptr).element_count,
                     capacity: (*mut_vec_ptr).capacity,
                 });
+            }
+
+            #[cfg(feature = "debug_vm")]
+            if true || self.debug_operations_enabled {
+                let target_capacity = (*mut_vec_ptr).capacity;
+                let target_len = (*mut_vec_ptr).element_count;
+                let target_elem_size = (*mut_vec_ptr).element_size;
+
+                let source_capacity = (*src_vec_ptr).capacity;
+                let source_len = (*src_vec_ptr).element_count;
+                let source_elem_size = (*src_vec_ptr).element_size;
+
+                eprintln!("vec_copy target capacity: {target_capacity} len: {target_len} elem_size:{target_elem_size}, source_capacity:{source_capacity}, source_len:{source_len}, elem_size:{source_elem_size}")
             }
 
             let target_capacity = (*mut_vec_ptr).capacity;
@@ -156,6 +159,9 @@ impl Vm {
 
             let total_bytes_to_copy = (VEC_HEADER_SIZE.0 - 2)
                 + ((*src_vec_ptr).element_count as u32) * (*src_vec_ptr).element_size;
+
+
+            eprintln!("vec_copy bytes_to_copy: {total_bytes_to_copy} to {target_tail:X} from {source_tail:X}");
 
             ptr::copy_nonoverlapping(source_raw, target_raw, total_bytes_to_copy as usize);
 
@@ -197,15 +203,9 @@ impl Vm {
             if (*mut_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
-            if (*mut_vec_ptr).capacity == 0 {
-                eprintln!("TARGET IS NOT INITIALIZED");
-                return self.internal_trap(TrapCode::VecNeverInitialized);
-            }
+
             if (*src_vec_ptr).padding != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
-            }
-            if (*src_vec_ptr).capacity == 0 {
-                return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
             if range_header.max < range_header.min {
@@ -310,9 +310,6 @@ impl Vm {
 
         if vec_header.padding != VEC_HEADER_MAGIC_CODE {
             return self.internal_trap(TrapCode::MemoryCorruption);
-        }
-        if vec_header.capacity == 0 {
-            return self.internal_trap(TrapCode::VecNeverInitialized);
         }
 
         #[cfg(feature = "debug_vm")]
@@ -562,10 +559,6 @@ impl Vm {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
 
-            if (*mut_vec_ptr).capacity == 0 {
-                return self.internal_trap(TrapCode::VecNeverInitialized);
-            }
-
             if total_len > (*mut_vec_ptr).capacity {
                 return self.internal_trap(TrapCode::VecOutOfCapacity {
                     encountered: total_len,
@@ -575,9 +568,6 @@ impl Vm {
 
             if unsafe { (*src_vec_ptr).padding } != VEC_HEADER_MAGIC_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
-            }
-            if (*src_vec_ptr).capacity == 0 {
-                return self.internal_trap(TrapCode::VecNeverInitialized);
             }
 
             let tail_of_target_addr = vec_addr
@@ -623,9 +613,6 @@ impl Vm {
                 return self.internal_trap(TrapCode::MemoryCorruption);
             }
 
-            if (*mut_vec_ptr).capacity == 0 {
-                return self.internal_trap(TrapCode::VecNeverInitialized);
-            }
             if len >= (*mut_vec_ptr).capacity {
                 return self.internal_trap(TrapCode::VecOutOfCapacity {
                     encountered: len,

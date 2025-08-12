@@ -19,11 +19,8 @@ impl CodeBuilder<'_> {
     ) {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
-        let string_cap_bytes = if string_byte_count == 0 {
-            1
-        } else {
-            string_byte_count
-        };
+        let string_cap_bytes =
+            string_byte_count;
 
         // Create a combined buffer for the header and string data
         let total_size = size_of::<VecHeader>() + string_byte_count;
@@ -33,7 +30,7 @@ impl CodeBuilder<'_> {
         let string_header = VecHeader {
             capacity: string_cap_bytes as u16,
             element_count: string_byte_count as u16,
-            element_size: 1,
+            element_size: 1, // size of byte
             padding: VEC_HEADER_MAGIC_CODE,
         };
 

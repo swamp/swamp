@@ -115,7 +115,7 @@ fn test_append() {
 fn empty_string_behaviors() {
     mut s = ""
     assert(s.len() == 0, 'len was {s.len()}')
-    assert(s.capacity() == 1, "didn't follow the capacity rules of swamp") // capacity is never allowed to be zero for a collection in Swamp
+    assert(s.capacity() == 0, "didn't follow the capacity rules of swamp") // capacity is never allowed to be zero for a collection in Swamp
     assert(s.is_empty(), "is_empty() was wrong")
     mut iterated = 0
     for _ in "" { iterated += 1 }

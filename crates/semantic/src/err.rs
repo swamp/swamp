@@ -18,7 +18,7 @@ pub enum ErrorKind {
     NoAssociatedFunction(TypeRef, String),
     MissingSubscriptMember,
     UnusedVariablesCanNotBeMut,
-    VariableTypeMustBeBlittable(TypeRef),
+    VariableTypeMustBeAtLeastTransient(TypeRef),
     GuardCanNotHaveMultipleWildcards,
     WildcardMustBeLastInGuard,
     GuardMustHaveWildcard,
@@ -164,7 +164,7 @@ impl fmt::Display for ErrorKind {
             Self::UnknownIdentifier(_) => "unknown identifier",
             Self::UnknownTypeReference => "unknown type",
             Self::UnusedVariablesCanNotBeMut => "unused variable cannot be mutable",
-            Self::VariableTypeMustBeBlittable(_) => "variable type must be blittable",
+            Self::VariableTypeMustBeAtLeastTransient(_) => "variable type must be blittable",
             Self::OverwriteVariableWithAnotherType => {
                 "cannot overwrite variable with a different type"
             }
@@ -276,7 +276,7 @@ impl ErrorKind {
             Self::NoAssociatedFunction(_, _) => 1,
             Self::MissingSubscriptMember => 2,
             Self::UnusedVariablesCanNotBeMut => 3,
-            Self::VariableTypeMustBeBlittable(_) => 4,
+            Self::VariableTypeMustBeAtLeastTransient(_) => 4,
             Self::GuardCanNotHaveMultipleWildcards => 5,
             Self::WildcardMustBeLastInGuard => 6,
             Self::GuardMustHaveWildcard => 7,

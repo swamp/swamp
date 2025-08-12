@@ -17,8 +17,8 @@ impl Default for TypeFlags {
 
 impl TypeFlags {
     pub const NONE: Self = Self(0);
-    /// Can it be copied without any extra logic
-    pub const IS_BLITTABLE: Self = Self(1 << 0);
+    /// Can be held on to for a short while
+    pub const ALLOWED_AS_TRANSIENT: Self = Self(1 << 0);
     /// Is the type self-contained in a register
     pub const IS_SCALAR: Self = Self(1 << 1);
     /// Can it be stored in a sum or product type
@@ -52,61 +52,54 @@ impl TypeFlags {
             }
             TypeKind::Any => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN);
+            }
+            TypeKind::Pointer(_) => {
+                flags = flags
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Codepoint => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Byte => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Int => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
-                    .union(Self::IS_SCALAR);
-            }
-            TypeKind::String(..) => {
-                flags = flags
-                    .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_ALLOWED_RETURN)
-                    .union(Self::IS_SCALAR);
-            }
-            TypeKind::StringStorage(_, _, _) => {
-                flags = flags
-                    .union(Self::IS_BLITTABLE)
-                    .union(Self::IS_STORAGE)
                     .union(Self::IS_SCALAR);
             }
 
             TypeKind::Float => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Bool => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Unit => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
@@ -115,7 +108,7 @@ impl TypeFlags {
             TypeKind::Enum(enum_type) => {
                 if enum_type.are_all_variants_with_blittable_payload() {
                     flags = flags
-                        .union(Self::IS_BLITTABLE)
+                        .union(Self::ALLOWED_AS_TRANSIENT)
                         .union(Self::IS_ALLOWED_RETURN);
                 } else {
                     panic!("enums should be blittable")
@@ -126,9 +119,9 @@ impl TypeFlags {
             }
             TypeKind::Tuple(types) => {
                 // A tuple is blittable if all its component types are blittable
-                if types.iter().all(|t| t.flags.contains(Self::IS_BLITTABLE)) {
+                if types.iter().all(|t| t.flags.contains(Self::ALLOWED_AS_TRANSIENT)) {
                     flags = flags
-                        .union(Self::IS_BLITTABLE)
+                        .union(Self::ALLOWED_AS_TRANSIENT)
                         .union(Self::IS_ALLOWED_RETURN);
                 }
                 if types.iter().all(|t| t.flags.contains(Self::IS_STORAGE)) {
@@ -137,8 +130,8 @@ impl TypeFlags {
             }
             TypeKind::Optional(inner) => {
                 // An optional is blittable if its inner type is blittable
-                if inner.flags.contains(Self::IS_BLITTABLE) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                if inner.flags.contains(Self::ALLOWED_AS_TRANSIENT) {
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 // TODO: check this
                 if inner.flags.contains(Self::IS_ALLOWED_RETURN) {
@@ -149,8 +142,8 @@ impl TypeFlags {
                 }
             }
             TypeKind::NamedStruct(named) => {
-                if named.anon_struct_type.flags.contains(Self::IS_BLITTABLE) {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                if named.anon_struct_type.flags.contains(Self::ALLOWED_AS_TRANSIENT) {
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if named.anon_struct_type.flags.contains(Self::IS_STORAGE) {
                     flags = flags.union(Self::IS_STORAGE);
@@ -167,9 +160,9 @@ impl TypeFlags {
                 if anon
                     .field_name_sorted_fields
                     .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::IS_BLITTABLE))
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_AS_TRANSIENT))
                 {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
 
                 anon.field_name_sorted_fields
@@ -187,7 +180,7 @@ impl TypeFlags {
             }
             TypeKind::MapStorage(key, value, _) => {
                 if key.is_blittable() && value.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
 
                 if key.is_storage() && value.is_storage() {
@@ -199,7 +192,7 @@ impl TypeFlags {
             }
             TypeKind::FixedCapacityAndLengthArray(inner, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -210,7 +203,7 @@ impl TypeFlags {
             }
             TypeKind::VecStorage(inner, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -220,9 +213,21 @@ impl TypeFlags {
                 flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
 
+            TypeKind::StringStorage(_, _, _) => {
+                flags = flags
+                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::IS_STORAGE);
+            }
+
+            TypeKind::StringView(..) => {
+                flags = flags
+                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::IS_ALLOWED_RETURN);
+            }
+
             TypeKind::StackStorage(inner, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -234,7 +239,7 @@ impl TypeFlags {
 
             TypeKind::QueueStorage(inner, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -245,7 +250,7 @@ impl TypeFlags {
             }
             TypeKind::GridStorage(inner, _, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -256,7 +261,7 @@ impl TypeFlags {
             }
             TypeKind::SparseStorage(inner, _) => {
                 if inner.is_blittable() {
-                    flags = flags.union(Self::IS_BLITTABLE);
+                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -267,7 +272,7 @@ impl TypeFlags {
             }
             TypeKind::Range(_inner) => {
                 flags = flags
-                    .union(Self::IS_BLITTABLE)
+                    .union(Self::ALLOWED_AS_TRANSIENT)
                     .union(Self::IS_ALLOWED_RETURN);
                 flags = flags.union(Self::IS_STORAGE);
             }

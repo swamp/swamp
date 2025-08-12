@@ -101,7 +101,7 @@ impl CodeBuilder<'_> {
             .clone();
 
         // For primitives, always pass them using direct register assignment.
-        if target_register.ty.basic_type.is_scalar() {
+        if target_register.ty.basic_type.is_reg_copy() {
             self.emit_expression_into_register(
                 &target_register,
                 expression,

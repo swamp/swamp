@@ -4,5 +4,5 @@
  */
 pub use crate::{
     aligner::align, aligner::SAFE_ALIGNMENT, HeapMemoryAddress,
-    HeapMemoryRegion, InstructionPosition, MemoryAlignment,
+    HeapMemoryRegion, InstructionPosition, MemoryAlignment, MemoryOffset,
     MemorySize};

@@ -13,23 +13,23 @@ use std::io;
 use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
-use swamp_analyzer::Analyzer;
 pub use swamp_analyzer::prelude::Program;
+use swamp_analyzer::{Analyzer, AnalyzerOptions};
 use swamp_core::text::core_text;
 use swamp_dep_loader::{
-    DependencyParser, ParsedAstModule, RunMode, parse_local_modules_and_get_order,
-    parse_single_module_from_text, swamp_registry_path,
+    parse_local_modules_and_get_order, parse_single_module_from_text, swamp_registry_path, DependencyParser,
+    ParsedAstModule, RunMode,
 };
 use swamp_error_report::analyze::show_analyzer_error;
 use swamp_error_report::prelude::Kind;
-use swamp_error_report::{ScriptResolveError, prelude::show_script_resolve_error};
+use swamp_error_report::{prelude::show_script_resolve_error, ScriptResolveError};
 use swamp_modules::modules::{ModuleRef, Modules};
 use swamp_modules::prelude::Module;
 use swamp_modules::symtbl::{DefinitionTable, SymbolTableRef};
 use swamp_pretty_print::{ImplsDisplay, SourceMapDisplay, SymbolTableDisplay};
 use swamp_program_analyzer::analyze_modules_in_order;
 use swamp_semantic::err::Error;
-use swamp_semantic::{AssociatedImpls, ProgramState, formal_module_name};
+use swamp_semantic::{formal_module_name, AssociatedImpls, ProgramState};
 use swamp_std::std_text;
 use swamp_types::prelude::print_types;
 use time_dilation::ScopedTimer;
@@ -59,6 +59,7 @@ pub fn analyze_single_module(
     parsed_ast_module: &ParsedAstModule,
     source_map: &SourceMap,
     versioned_module_path: &[String],
+    options: AnalyzerOptions,
 ) -> DefinitionTable {
     let mut analyzer = Analyzer::new(
         state,
@@ -67,6 +68,7 @@ pub fn analyze_single_module(
         source_map,
         versioned_module_path,
         parsed_ast_module.file_id,
+        options,
     );
 
     analyzer.shared.lookup_table = default_symbol_table;
@@ -161,6 +163,9 @@ pub fn bootstrap_modules(
         &core_parsed_ast_module,
         source_map,
         &core_module_with_intrinsics.definition_table.module_path(),
+        AnalyzerOptions {
+            allow_unsafe: false,
+        },
     );
 
     // After this the core symbol table is done
@@ -189,6 +194,9 @@ pub fn bootstrap_modules(
         &std_ast_module,
         source_map,
         &std_module_with_intrinsics.definition_table.module_path(),
+        AnalyzerOptions {
+            allow_unsafe: false,
+        },
     );
     default_module
         .definition_table
@@ -214,6 +222,7 @@ pub fn compile_and_analyze_all_modules(
     resolved_program: &mut Program,
     source_map: &mut SourceMap,
     core_symbol_table: SymbolTableRef,
+    options: AnalyzerOptions,
 ) -> Result<(), ScriptResolveError> {
     let mut dependency_parser = DependencyParser::new();
 
@@ -228,6 +237,7 @@ pub fn compile_and_analyze_all_modules(
         source_map,
         &module_paths_in_order,
         &dependency_parser,
+        options,
     )?;
 
     Ok(())
@@ -238,7 +248,7 @@ pub fn remove_version_from_package_name_regex(package_name_with_version: &str) -
     let re = Regex::new(
         r"-(?P<version>[0-9]+(?:\.[0-9]+)*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)?(?:\+.*)?$",
     )
-    .unwrap();
+        .unwrap();
     re.replace(package_name_with_version, "").to_string()
 }
 
@@ -255,6 +265,7 @@ pub struct CompileOptions {
     pub show_hints: bool,
     pub show_information: bool,
     pub show_types: bool,
+    pub allow_unsafe: bool,
 }
 
 /// # Errors
@@ -286,10 +297,13 @@ pub fn bootstrap_and_compile(
         &mut program,
         source_map,
         core_symbol_table.into(),
+        AnalyzerOptions {
+            allow_unsafe: options.allow_unsafe,
+        },
     )
-    .inspect_err(|err| {
-        show_script_resolve_error(err, source_map, &current_path());
-    })?;
+        .inspect_err(|err| {
+            show_script_resolve_error(err, source_map, &current_path());
+        })?;
 
     drop(compile_all_modules_timer);
 
@@ -442,6 +456,7 @@ pub fn compile_string(script: &str, run_mode: &RunMode) -> (Program, ModuleRef, 
         show_hints: false,
         show_information: false,
         show_types: false,
+        allow_unsafe: false,
     };
     let program =
         bootstrap_and_compile(&mut source_map, &resolved_path_str, &compile_options).unwrap();

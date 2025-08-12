@@ -70,13 +70,13 @@ impl Type {
     #[inline]
     #[must_use]
     pub const fn can_be_stored_in_transient_field(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BLITTABLE)
+        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
     }
 
     #[inline]
     #[must_use]
     pub const fn can_be_stored_in_variable(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BLITTABLE)
+        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
     }
 
     #[must_use]
@@ -105,7 +105,7 @@ impl Type {
     #[inline]
     #[must_use]
     pub const fn is_blittable(&self) -> bool {
-        self.flags.contains(TypeFlags::IS_BLITTABLE)
+        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
     }
 
     /// Check if this type requires explicit collection storage allocation from caller

@@ -99,8 +99,8 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 (
-                    TypeKind::String(..) | TypeKind::StringStorage(..),
-                    TypeKind::String(..) | TypeKind::StringStorage(..),
+                    TypeKind::StringView(..) | TypeKind::StringStorage(..),
+                    TypeKind::StringView(..) | TypeKind::StringStorage(..),
                 ) => self.emit_binary_operator_string(
                     dest_bool_reg,
                     &left_source,
@@ -110,7 +110,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
 
-                (TypeKind::String(..) | TypeKind::StringStorage(..), TypeKind::Int) => self
+                (TypeKind::StringView(..) | TypeKind::StringStorage(..), TypeKind::Int) => self
                     .emit_binary_operator_string(
                         dest_bool_reg,
                         &left_source,

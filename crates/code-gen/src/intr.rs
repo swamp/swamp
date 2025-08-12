@@ -1695,6 +1695,8 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             } // All intrinsic cases are now handled above
+
+            IntrinsicFunction::PtrFromU32 => {}
         }
     }
 

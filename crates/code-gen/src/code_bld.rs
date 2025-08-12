@@ -106,25 +106,7 @@ impl CodeBuilder<'_> {
                 );
             }
         } else {
-            // Special case: StringStorage to StringView should create a string duplicate
-            if matches!(
-                source_reg.ty.basic_type.kind,
-                BasicTypeKind::StringStorage {
-                    element_type: _,
-                    char: _,
-                    capacity: _
-                }
-            ) && matches!(
-                target_reg.ty.basic_type.kind,
-                BasicTypeKind::StringView { byte: _, char: _ }
-            ) {
-                self.builder.add_string_duplicate(
-                    target_reg,
-                    source_reg,
-                    node,
-                    &format!("emit_copy_register. string storage to view (duplicate). {comment}"),
-                );
-            } else {
+            {
                 self.builder.add_mov_reg(
                     target_reg,
                     source_reg,

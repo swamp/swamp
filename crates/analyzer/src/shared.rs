@@ -19,6 +19,7 @@ pub struct SharedState<'a> {
     pub source_map: &'a SourceMap,
     pub file_id: FileId,
     pub core_symbol_table: SymbolTableRef,
+    pub allow_unsafe: bool,
 }
 
 impl<'a> SharedState<'a> {

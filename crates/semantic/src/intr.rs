@@ -114,6 +114,7 @@ pub enum IntrinsicFunction {
     RuntimeStep,
     EnumDiscriminant,
     EnumFromDiscriminant,
+    PtrFromU32,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -230,6 +231,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::RuntimeHalt => "runtime_halt",
             Self::RuntimeStep => "runtime_step",
             Self::RangeInit => "rinit",
+            Self::PtrFromU32 => "ptr_from_u32",
         };
 
         write!(f, "{name}")

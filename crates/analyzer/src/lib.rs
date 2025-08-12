@@ -154,6 +154,11 @@ pub struct Analyzer<'a> {
     last_function_node: Node,
 }
 
+#[derive(Copy, Clone)]
+pub struct AnalyzerOptions {
+    pub allow_unsafe: bool,
+}
+
 impl<'a> Analyzer<'a> {
     pub fn new(
         state: &'a mut ProgramState,
@@ -162,6 +167,7 @@ impl<'a> Analyzer<'a> {
         source_map: &'a SourceMap,
         module_path: &[String],
         file_id: FileId,
+        options: AnalyzerOptions,
     ) -> Self {
         let shared = SharedState {
             state,
@@ -171,6 +177,7 @@ impl<'a> Analyzer<'a> {
             core_symbol_table,
             source_map,
             file_id,
+            allow_unsafe: options.allow_unsafe,
         };
 
         let mut analyzer = Self {
@@ -1017,7 +1024,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1051,14 +1058,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1463,8 +1470,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1537,7 +1543,7 @@ impl<'a> Analyzer<'a> {
         let resolved_type = &resolved_expression.ty.clone();
         let int_type = Some(self.types().int());
         let (key_type, value_type): (Option<TypeRef>, TypeRef) = match &*resolved_type.kind {
-            TypeKind::String(_, char) => (int_type, char.clone()),
+            TypeKind::StringView(_, char) => (int_type, char.clone()),
             TypeKind::SliceView(element_type) => (int_type, element_type.clone()),
             TypeKind::VecStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
             TypeKind::SparseStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
@@ -1661,7 +1667,7 @@ impl<'a> Analyzer<'a> {
                         .associated_impls
                         .get_internal_member_function(&expr.ty, "string");
 
-                    if matches!(tk, TypeKind::String { .. }) {
+                    if matches!(tk, TypeKind::StringView { .. }) {
                         expr
                     } else {
                         let underlying = expr.ty.clone();
@@ -2464,8 +2470,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                .expect_immutable()
-                .unwrap()
+                    .expect_immutable()
+                    .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2706,8 +2712,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2761,7 +2766,7 @@ impl<'a> Analyzer<'a> {
             let debug_text = self.get_text(&variable.name);
             if !debug_text.starts_with('_') {
                 return self.create_err(
-                    ErrorKind::VariableTypeMustBeBlittable(target_type.clone()),
+                    ErrorKind::VariableTypeMustBeAtLeastTransient(target_type.clone()),
                     &variable.name,
                 );
             }
@@ -2848,7 +2853,7 @@ impl<'a> Analyzer<'a> {
 
         if *resulting_type.kind == TypeKind::Unit {
             return self.create_err(
-                ErrorKind::VariableTypeMustBeBlittable(resulting_type),
+                ErrorKind::VariableTypeMustBeAtLeastTransient(resulting_type),
                 &var.name,
             );
         }
@@ -3883,6 +3888,44 @@ impl<'a> Analyzer<'a> {
         Some(intrinsic_and_signature)
     }
 
+    fn ptr_member_signature(&mut self,
+                            self_type: &TypeRef,
+                            field_name_str: &str,
+                            node: &swamp_ast::Node, ) -> Option<(IntrinsicFunction, Signature)> {
+        let self_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: false,
+            node: None,
+        };
+        let self_mut_type_param = TypeForParameter {
+            name: "self".to_string(),
+            resolved_type: self_type.clone(),
+            is_mutable: true,
+            node: None,
+        };
+
+        let intrinsic_and_signature = match field_name_str {
+            "from_u32" => {
+                let signature = Signature {
+                    parameters: vec![TypeForParameter {
+                        name: "addr".to_string(),
+                        resolved_type: self.types().int(),
+                        is_mutable: false,
+                        node: None,
+                    }],
+                    return_type: self.types().int(),
+                };
+                (IntrinsicFunction::VecLen, signature)
+            }
+            _ => {
+                return None
+            }
+        };
+
+        Some(intrinsic_and_signature)
+    }
+
     fn basic_collection_member_signature(
         &mut self,
         self_type: &TypeRef,
@@ -4382,6 +4425,13 @@ impl<'a> Analyzer<'a> {
                 lambda_variables_count,
                 node,
             ),
+            TypeKind::Pointer(inner) => {
+                self.ptr_member_signature(
+                    type_that_member_is_on,
+                    field_name_str,
+                    node,
+                )
+            }
             TypeKind::Byte => {
                 let element_type = self.shared.state.types.byte();
                 self.byte_member_signature(
@@ -4404,7 +4454,7 @@ impl<'a> Analyzer<'a> {
                     node,
                 )
             }
-            TypeKind::String { .. } | TypeKind::StringStorage(..) => {
+            TypeKind::StringView { .. } | TypeKind::StringStorage(..) => {
                 let element_type = self.shared.state.types.byte();
                 self.string_member_signature(
                     type_that_member_is_on,
@@ -4591,8 +4641,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4721,8 +4771,27 @@ impl<'a> Analyzer<'a> {
         let converted_type = match name {
             "Any" => {
                 let new_type = self.shared.state.types.any();
-                let default_node = swamp_ast::Node::default();
                 new_type
+            }
+            "Ptr" => {
+                if self.shared.allow_unsafe {
+                    let inner_type = if ast_generic_parameters.len() == 1 {
+                        self.analyze_type(
+                            ast_generic_parameters[0].get_type(),
+                            &TypeAnalyzeContext::default(),
+                        )
+                    } else if ast_generic_parameters.is_empty() {
+                        self.shared.state.types.byte() // byte is the default pointer size
+                    } else {
+                        self.add_err_resolved(ErrorKind::UnexpectedType, &Node::default());
+                        return None;
+                    };
+                    let new_type = self.shared.state.types.ptr(inner_type);
+                    self.shared.state.associated_impls.prepare(&new_type);
+                    new_type
+                } else {
+                    panic!("unsafe Ptr is not allowed");
+                }
             }
             "String" => {
                 if ast_generic_parameters.len() == 1 {
@@ -4933,7 +5002,7 @@ impl<'a> Analyzer<'a> {
             | TypeKind::StackView(element_type)
             | TypeKind::VecStorage(element_type, _)
             | TypeKind::StringStorage(element_type, _, _)
-            | TypeKind::String(element_type, _)
+            | TypeKind::StringView(element_type, _)
             | TypeKind::FixedCapacityAndLengthArray(element_type, _)
             | TypeKind::DynamicLengthVecView(element_type)
             | TypeKind::SliceView(element_type) => {
@@ -4994,7 +5063,7 @@ impl<'a> Analyzer<'a> {
             | TypeKind::StackView(element_type)
             | TypeKind::VecStorage(element_type, _)
             | TypeKind::StringStorage(element_type, _, _)
-            | TypeKind::String(element_type, _)
+            | TypeKind::StringView(element_type, _)
             | TypeKind::FixedCapacityAndLengthArray(element_type, _)
             | TypeKind::DynamicLengthVecView(element_type)
             | TypeKind::SliceView(element_type) => {

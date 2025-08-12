@@ -91,7 +91,7 @@ impl CodeBuilder<'_> {
                 );
             }
             // TODO: Add support for compound assignment for string
-            TypeKind::String { .. } => todo!(),
+            TypeKind::StringView { .. } => todo!(),
             _ => panic!("not allowed as a compound assignment"), // TODO: Should not panic, just return error
         }
 

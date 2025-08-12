@@ -318,7 +318,7 @@ impl TopLevelGenState {
         let return_register =
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
-        let destination = if return_register.ty.basic_type.is_scalar() {
+        let destination = if return_register.ty.basic_type.is_reg_copy() {
             Destination::Register(return_register)
         } else {
             let memory_location = MemoryLocation {

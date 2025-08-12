@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::Type;
 use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
+use crate::Type;
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -17,10 +17,12 @@ pub enum TypeKind {
     Int,
     Codepoint,
     Float,
-    String(Rc<Type>, Rc<Type>), // basically an "alias" for Vec<Byte>
+    StringView(Rc<Type>, Rc<Type>), // basically an "alias" for Vec<Byte>
     StringStorage(Rc<Type>, Rc<Type>, usize), // basically an "alias" for Vec<Byte; N>
     Bool,
     Unit, // Empty or nothing
+
+    Pointer(Rc<Type>),
 
     // Aggregate type, Containers
     Tuple(Vec<Rc<Type>>),
@@ -67,17 +69,18 @@ impl Display for TypeKind {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Never => write!(f, "!"),
+            Self::Pointer(inner) => write!(f, "Ptr<inner>"),
             Self::Any => write!(f, "Any"),
             Self::Byte => write!(f, "byte"),
             Self::Codepoint => write!(f, "codepoint"),
             Self::Int => write!(f, "int"),
             Self::Float => write!(f, "float"),
-            Self::String(..) => write!(f, "string"),
+            Self::StringView(..) => write!(f, "string"),
             Self::StringStorage(_, size, _) => write!(f, "string[{size}]"),
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "()"),
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
-            Self::NamedStruct(named_struct) => write!(f, "{named_struct}",),
+            Self::NamedStruct(named_struct) => write!(f, "{named_struct}", ),
             Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
             Self::Range(range) => {
                 if let Self::AnonymousStruct(anon_struct) = &*range.kind {

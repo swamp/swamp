@@ -1,0 +1,139 @@
+#[test]
+fn empty_literal_view() {
+    a = ""
+    assert(a.len() == 0, "empty length")
+    assert(a.capacity() == 0, "empty length")
+}
+
+#[test]
+fn utf8_literal_view() {
+    a = "☕ñ🚀"
+    assert(a.len() == 9, "utf8 byte length")
+    assert(a.capacity() == 9, "capacity failed")
+    assert(a == "☕ñ🚀", "must match exactly")
+}
+
+#[test]
+fn set_view_from_view_constant() {
+    a = "hello"
+}
+
+#[test]
+fn set_view_from_view_constant_equality() {
+    a = "hello"
+    assert(a == "hello", 'must be same')
+}
+
+
+#[test]
+fn set_storage_from_view_constant() {
+    a: String<42> = "hello"
+}
+
+#[test]
+fn set_storage_from_view_constant_equality() {
+    a: String<42> = "hello"
+    assert(a == "hello", "failed")
+}
+
+#[test]
+fn append_literals() {
+    a = "hello " + "world🚀"
+    assert(a.len() == 15, 'len failed')
+    assert(a.capacity() == 15, 'len failed')
+    assert(a == "hello world🚀", "failed")
+}
+
+#[test]
+fn append_views() {
+    a = "hello "
+    b = "world!"
+    c = a + b
+    assert(c == "hello world!", "failed")
+}
+
+#[test]
+fn append_storage_and_storage() {
+    a: String<42> = "hello "
+    b: String<32> = "world!"
+    assert(a == "hello ", "a did not match")
+    assert(b == "world!", "b did not match")
+    c = a + b
+
+    assert(c.len() == 12, "len failed")
+    assert(c.capacity() == 12, "capacity failed")
+    assert(c[0].int() == 104, 'first char failed {c[0].int()}')
+
+    assert(c == "hello world!", "equality failed")
+}
+
+#[test]
+fn append_constant_view_with_constant_view_to_constant_view() {
+    a = "hello " + "goodbye"
+}
+
+#[test]
+fn append_constant_view_with_constant_view_to_constant_view_equality() {
+    a = "hello " + "goodbye"
+    assert(a == "hello goodbye", "wrong")
+}
+
+#[test]
+fn string_interpolation() {
+    name = "catnipped"
+    a = 'hello {name}'
+    assert(a == "hello catnipped", "failed string interpolation")
+}
+
+
+#[test]
+fn string_view_from_storage() {
+    a: String<42> = "hello"
+    b: String = a
+
+    assert(a == "hello", "failed string_view_from_storage")
+    assert(b == "hello", "failed string_view_from_storage")
+    assert(a == b, "failed string_view_from_storage")
+}
+
+struct StringInStruct {
+    something_else: Int,
+    str: String<99>,
+}
+
+#[test]
+fn view_to_storage_mem_place() {
+    s = StringInStruct { str: "hello",.. }
+    assert(s.str.capacity() == 99, "capacity failed")
+    assert(s.str.len() == 5, "len failed")
+    assert(s.str == "hello", "equality failed")
+}
+
+#[test]
+fn str_storage_to_storage_in_mem_place() {
+    a: String<48> = "hello"
+    s = StringInStruct { str: a,.. }
+    assert(s.str.capacity() == 99, "capacity failed")
+    assert(s.str.len() == 5, "len failed")
+    assert(s.str == "hello", "equality failed")
+}
+
+// =============== THINGS TO FIX =================
+
+#[test]
+fn str_view_from_str_storage_in_mem_place() {
+    s = StringInStruct { str: "hello",.. }
+    view: String = s.str // TODO: this should make a copy from the storage into the scratch arena. It is not safe to keep the view to a storage.
+    assert(view.capacity() == 5, "view capacity failed") // view should have the same capacity, since it is a pointer
+    assert(view.len() == 5, "view len failed")
+
+    assert(s.str.capacity() == 99, "capacity failed")
+    assert(s.str.len() == 5, "len failed")
+    assert(s.str == "hello", "equality failed")
+}
+
+#[test]
+fn mut_is_not_allowed() {
+    // TODO: THIS SHOULD NOT COMPILE
+    mut a = "hello"
+}

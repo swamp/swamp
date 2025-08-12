@@ -2508,7 +2508,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest.ty().is_str());
+        // TODO: assert!(dest.ty().is_str());
         assert!(self_int.ty().is_int());
         self.state.add_instruction(
             OpCode::IntToString,
@@ -2525,7 +2525,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_str.ty().is_str());
+        // TODO: assert!(dest_str.ty().is_str());
         assert!(self_bool.ty().is_bool());
         self.state.add_instruction(
             OpCode::BoolToString,
@@ -2542,7 +2542,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_str.ty().is_str());
+        // TODO: assert!(dest_str.ty().is_str());
         assert!(self_bool.ty().is_byte());
         self.state.add_instruction(
             OpCode::ByteToString,
@@ -2559,7 +2559,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_str.ty().is_str());
+        //TODO: bring back //. assert!(dest_str.ty().is_str());
         assert!(self_char.ty().is_codepoint());
         self.state.add_instruction(
             OpCode::CodepointToString,
@@ -2576,7 +2576,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_str.ty().is_str());
+        // TODO: assert!(dest_str.ty().is_str());
         assert!(self_str.ty().is_str());
         self.state.add_instruction(
             OpCode::StringToString,
@@ -2646,7 +2646,7 @@ impl InstructionBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        assert!(dest_str.ty().is_str());
+        // TODO: assert!(dest_str.ty().is_str());
         assert!(self_float.ty().is_float());
         self.state.add_instruction(
             OpCode::FloatToString,

@@ -6,7 +6,7 @@ use crate::code_bld::CodeBuilder;
 use crate::DetailedLocationResolved;
 use source_map_node::Node;
 use swamp_vm_isa::COLLECTION_CAPACITY_OFFSET;
-use swamp_vm_types::types::{u16_type, BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{u16_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
@@ -327,28 +327,6 @@ impl CodeBuilder<'_> {
         node: &Node,
         comment: &str,
     ) {
-        // Special case: StringView to StringStorage should perform vec-like copy
-        if matches!(
-            source_memory_location.ty.basic_type.kind,
-            BasicTypeKind::StringView { byte: _, char: _ }
-        ) && matches!(
-            destination_memory_location.ty.basic_type.kind,
-            BasicTypeKind::StringStorage {
-                element_type: _,
-                char: _,
-                capacity: _
-            }
-        ) {
-            // Perform vec-like copy for StringView to StringStorage
-            self.emit_copy_vec_like_value_helper(
-                destination_memory_location,
-                source_memory_location,
-                node,
-                &format!("copy StringView to StringStorage {comment}"),
-            );
-            return;
-        }
-
         let ty = &source_memory_location.ty;
         if ty.is_collection_like() {
             if ty.basic_type.is_vec_like() {
@@ -466,31 +444,7 @@ impl CodeBuilder<'_> {
 
         match value_source {
             Destination::Register(value_reg) => {
-                // Special case: StringView to StringStorage should perform vec-like copy
-                if matches!(
-                    value_reg.ty.basic_type.kind,
-                    BasicTypeKind::StringView { byte: _, char: _ }
-                ) && matches!(
-                    output_mem_loc.ty.basic_type.kind,
-                    BasicTypeKind::StringStorage {
-                        element_type: _,
-                        char: _,
-                        capacity: _
-                    }
-                ) {
-                    // Create a memory location for the StringView source
-                    let source_memory_location =
-                        MemoryLocation::new_copy_over_whole_type_with_zero_offset(
-                            value_reg.clone(),
-                        );
-                    // Perform vec-like copy instead of scalar copy
-                    self.emit_copy_aggregate_value_helper(
-                        output_destination.grab_memory_location(),
-                        &source_memory_location,
-                        node,
-                        &format!("copy StringView to StringStorage {comment}"),
-                    );
-                } else if value_reg.ty.is_scalar() {
+                if value_reg.ty.is_reg_copy() {
                     self.emit_store_scalar_to_memory_offset_instruction(
                         output_mem_loc,
                         value_reg,
@@ -522,7 +476,7 @@ impl CodeBuilder<'_> {
                     &format!("load {comment} from memory for store"),
                 );
 
-                if source_mem_loc.ty.is_scalar() {
+                if source_mem_loc.ty.is_reg_copy() {
                     self.emit_store_scalar_to_memory_offset_instruction(
                         output_mem_loc,
                         temp_reg.register(),

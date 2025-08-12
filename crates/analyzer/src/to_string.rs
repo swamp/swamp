@@ -590,7 +590,7 @@ fn create_string_representation_of_expression(
     let string_type = generator.types.string();
     let ty = expression_to_convert.ty.clone();
 
-    if matches!(*ty.kind, TypeKind::String(..) | TypeKind::StringStorage(..)) {
+    if matches!(*ty.kind, TypeKind::StringView(..) | TypeKind::StringStorage(..)) {
         // For strings, wrap in quotes: "\"" + string + "\""
         let quote_expr = create_string_literal("\"", &string_type, node);
         let left_concat = concat_expressions(
@@ -1575,6 +1575,7 @@ pub fn internal_generate_to_string_function_for_type(
         // Primitive types have their own to_string() implementations in core_text()
         TypeKind::Never => panic!("Never can not be converted to string"),
         TypeKind::Any => panic!("Any can not be converted to string"),
+        TypeKind::Pointer(_) => panic!("Ptr can not be converted to string"),
         TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
         TypeKind::Codepoint => {
             panic!("Codepoint to_string() is handled in core_text(), not generated here")
@@ -1587,7 +1588,7 @@ pub fn internal_generate_to_string_function_for_type(
         TypeKind::Range(_) => {
             panic!("Range to_string() is handled in core_text(), not generated here")
         }
-        TypeKind::String { .. } => first_self_param,
+        TypeKind::StringView { .. } => first_self_param,
         TypeKind::StringStorage { .. } => first_self_param,
         // Unit type should display as "()"
         TypeKind::Unit => create_expr_resolved(
@@ -1700,7 +1701,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "string"
         }
-        .to_string(),
+            .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {

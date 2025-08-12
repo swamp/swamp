@@ -21,10 +21,6 @@ pub struct TypeCache {
     pub(crate) next_id: u32,
 }
 
-impl TypeCache {}
-
-impl TypeCache {}
-
 impl Default for TypeCache {
     fn default() -> Self {
         Self::new()
@@ -211,12 +207,12 @@ impl TypeCache {
                 // Check if fields match
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::Range(range_a), TypeKind::Range(range_b)) => {
@@ -242,12 +238,12 @@ impl TypeCache {
                 // Compare range types
                 anon_a.field_name_sorted_fields.len() == anon_b.field_name_sorted_fields.len()
                     && anon_a.field_name_sorted_fields.keys().all(|key| {
-                        anon_b.field_name_sorted_fields.contains_key(key)
-                            && self.compatible_with(
-                                &anon_a.field_name_sorted_fields[key].field_type,
-                                &anon_b.field_name_sorted_fields[key].field_type,
-                            )
-                    })
+                    anon_b.field_name_sorted_fields.contains_key(key)
+                        && self.compatible_with(
+                        &anon_a.field_name_sorted_fields[key].field_type,
+                        &anon_b.field_name_sorted_fields[key].field_type,
+                    )
+                })
             }
 
             (TypeKind::NamedStruct(named_a), TypeKind::NamedStruct(named_b)) => {
@@ -263,7 +259,7 @@ impl TypeCache {
                 // Check enum compatibility
                 if enum_a.assigned_name != enum_b.assigned_name
                     || enum_a.instantiated_type_parameters.len()
-                        != enum_b.instantiated_type_parameters.len()
+                    != enum_b.instantiated_type_parameters.len()
                 {
                     false
                 } else {
@@ -438,7 +434,7 @@ impl TypeCache {
     }
 
     pub fn string(&mut self) -> Rc<Type> {
-        let string_kind = TypeKind::String(self.byte(), self.codepoint());
+        let string_kind = TypeKind::StringView(self.byte(), self.codepoint());
 
         if let Some(existing) = self.find_type(&string_kind) {
             return existing;
@@ -447,6 +443,18 @@ impl TypeCache {
         let string_type = self.create_type(string_kind);
         self.add_type_to_cache(&string_type);
         string_type
+    }
+
+    pub fn ptr(&mut self, inner_type: TypeRef) -> Rc<Type> {
+        let ptr_kind = TypeKind::Pointer(Rc::clone(&inner_type));
+
+        if let Some(existing) = self.find_type(&ptr_kind) {
+            return existing;
+        }
+
+        let new_ptr_type = self.create_type(ptr_kind);
+        self.add_type_to_cache(&new_ptr_type);
+        new_ptr_type
     }
 
     // TODO: Maybe use a shared function for types with one element type
