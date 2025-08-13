@@ -21,7 +21,6 @@ use swamp_types::TypeKind;
 use swamp_vm_isa::REG_ON_FRAME_SIZE;
 use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 use swamp_vm_types::FrameMemoryRegion;
-use tracing::info;
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,
@@ -224,7 +223,6 @@ impl CodeBuilder<'_> {
 
             if return_basic_type.needs_hidden_pointer_as_return() {
                 // For aggregates: initialize the destination space first, then set up r0 as pointer to destination
-                info!(?return_basic_type, "returning");
                 self.setup_return_pointer_reg(output_destination, return_basic_type, node);
             } else {
                 // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)

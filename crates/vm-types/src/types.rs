@@ -313,7 +313,7 @@ impl BasicTypeKind {
     }
 
     pub const fn is_reg_copy(&self) -> bool {
-        self.is_scalar() || self.is_view()
+        self.is_scalar() || matches!(self, BasicTypeKind::StringView { .. })
     }
 
     pub const fn is_view(&self) -> bool {

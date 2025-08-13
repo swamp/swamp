@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
 use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{b8_type, u8_type, BasicTypeKind, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
@@ -112,11 +112,11 @@ impl CodeBuilder<'_> {
                                             ty: var_reg.ty.clone(),
                                         };
 
-                                        self.emit_load_or_calculate_address_from_memory(
+                                        self.emit_load_value_from_memory_source(
                                             &var_reg,
                                             &source_enum_payload_location,
                                             &var.name,
-                                            "load entire variant payload",
+                                            "load value from variant payload into variable",
                                         );
                                     }
                                     PatternElement::VariableWithFieldIndex(

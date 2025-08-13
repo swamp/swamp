@@ -136,6 +136,7 @@ fn guard_with_boolean_operations() {
 #[test]
 fn guard_with_string_matching() {
     status = Status::Pending("urgent")
+
     priority_keywords = ["urgent", "critical", "immediate"]
 
     result = match status {

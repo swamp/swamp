@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use std::mem::size_of;
-use swamp_vm_isa::{HeapMemoryAddress, VEC_HEADER_MAGIC_CODE, VecHeader};
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, string_type};
+use swamp_vm_isa::{HeapMemoryAddress, VecHeader, VEC_HEADER_MAGIC_CODE};
+use swamp_vm_types::types::{string_type, BasicTypeKind, Destination, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(
@@ -110,7 +110,7 @@ impl CodeBuilder<'_> {
                         memory_location,
                         &source_memory_location,
                         node,
-                        &format!("copy string literal '{string}' to StringStorage"),
+                        &format!("copy const string literal '{string}' to StringStorage"),
                     );
                 } else {
                     // Normal case: just store the pointer for StringView destinations
@@ -122,13 +122,13 @@ impl CodeBuilder<'_> {
                         temp_string_literal_reg.register(),
                         string_header_in_heap_ptr.0,
                         node,
-                        "string literal",
+                        &format!("set const string literal '{string}'"),
                     );
                     self.builder.add_st32_using_ptr_with_offset(
                         memory_location,
                         temp_string_literal_reg.register(),
                         node,
-                        "copy string pointer literal into destination memory",
+                        &format!("copy const string literal '{string}' to memory location"),
                     );
                 }
             }

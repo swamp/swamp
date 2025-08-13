@@ -7,11 +7,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{env, io};
-use swamp_runtime::prelude::{CodeGenOptions, RunMode, create_source_map};
-use swamp_runtime::{CompileAndCodeGenOptions, CompileOptions, compile_and_code_gen};
+use swamp_runtime::prelude::{create_source_map, CodeGenOptions, RunMode};
+use swamp_runtime::{compile_and_code_gen, CompileAndCodeGenOptions, CompileOptions};
 use swamp_yini::read_yini_cwd_with_defaults;
 use tracing_subscriber::filter::LevelFilter;
-use tracing_subscriber::{EnvFilter, fmt};
+use tracing_subscriber::{fmt, EnvFilter};
 
 pub fn init_logger() {
     let filter = EnvFilter::builder()
@@ -105,6 +105,7 @@ fn main() -> ExitCode {
             show_hints,
             show_information: true,
             show_types,
+            allow_unsafe: false,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: show_assembly,

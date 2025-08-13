@@ -2745,6 +2745,7 @@ impl<'a> Analyzer<'a> {
         self.common_variable_util(
             variable,
             maybe_found_variable,
+            VariableType::Local,
             maybe_annotated_type,
             source_expression,
         )
@@ -2762,9 +2763,15 @@ impl<'a> Analyzer<'a> {
         let maybe_annotated_type = maybe_found_variable
             .as_ref()
             .map(|var| var.resolved_type.clone());
+
+        let variable_type = match maybe_found_variable {
+            None => { VariableType::Local }
+            Some(ref var) => { var.variable_type.clone() }
+        };
         self.common_variable_util(
             variable,
             maybe_found_variable,
+            variable_type,
             maybe_annotated_type,
             source_expression,
         )
@@ -2774,6 +2781,7 @@ impl<'a> Analyzer<'a> {
         &mut self,
         variable: &swamp_ast::Variable,
         maybe_found_variable: Option<VariableRef>,
+        variable_type: VariableType,
         maybe_annotation: Option<TypeRef>,
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
@@ -2791,12 +2799,24 @@ impl<'a> Analyzer<'a> {
         );
 
         // verify the type now
+        match variable_type {
+            VariableType::Local => {
+                if !final_variable_type.can_be_stored_in_variable() {
+                    return self.create_err(
+                        ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
+                        &ast_name_node,
+                    );
+                }
+            }
 
-        if !final_variable_type.can_be_stored_in_variable() {
-            return self.create_err(
-                ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
-                &ast_name_node,
-            );
+            VariableType::Parameter => {
+                if !final_variable_type.allowed_as_return_type() {
+                    return self.create_err(
+                        ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
+                        &ast_name_node,
+                    );
+                }
+            }
         }
 
         let kind = if let Some(found_var) = &maybe_found_variable {

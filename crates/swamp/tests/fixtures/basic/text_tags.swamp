@@ -350,7 +350,7 @@ impl Parser {
 
                 //start_index = self.region_stack.pop()
             } else if self.peek() == b'[' {
-                name = self.read_opening_tag()
+                self.read_opening_tag()
             } else {
                 parsed_text = self.parse_text()
 

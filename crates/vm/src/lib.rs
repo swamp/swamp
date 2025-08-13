@@ -1335,6 +1335,10 @@ impl Vm {
     fn execute_eq_8_imm(&mut self, dest_bool_reg: u8, val_reg: u8, octet: u8) {
         let compare = get_reg!(self, val_reg);
         set_reg!(self, dest_bool_reg, compare == octet as u32);
+        #[cfg(feature = "debug_vm")]
+        if true || self.debug_operations_enabled {
+            eprintln!("{compare} {octet} result: {}", get_reg!(self,dest_bool_reg))
+        }
     }
 
     #[inline]
