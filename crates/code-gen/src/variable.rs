@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind, VariableRef};
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::VmTypeOrigin;
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::VmTypeOrigin;
 
 impl CodeBuilder<'_> {
     pub fn initialize_variable_the_first_time(&mut self, variable: &VariableRef) {

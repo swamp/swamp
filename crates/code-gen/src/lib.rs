@@ -67,8 +67,7 @@ use swamp_vm_types::types::{
     TypedRegister, VmType,
 };
 use swamp_vm_types::{
-    CountU16, FrameMemoryRegion, InstructionRange,
-    TempFrameMemoryAddress, ZFlagPolarity,
+    CountU16, FrameMemoryRegion, InstructionRange, TempFrameMemoryAddress, ZFlagPolarity,
 };
 
 #[derive(Clone)]

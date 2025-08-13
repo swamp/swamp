@@ -8,7 +8,7 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::TypeRef;
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::{pointer_type, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {

@@ -16,16 +16,19 @@ impl Default for SwampIni {
 }
 
 impl SwampIni {
-    #[must_use] pub const fn new() -> Self {
+    #[must_use]
+    pub const fn new() -> Self {
         Self { members: vec![] }
     }
 }
 
-#[must_use] pub fn read_yini_cwd() -> Option<SwampIni> {
+#[must_use]
+pub fn read_yini_cwd() -> Option<SwampIni> {
     read_yini(Path::new("./"))
 }
 
-#[must_use] pub fn read_yini_cwd_with_defaults() -> SwampIni {
+#[must_use]
+pub fn read_yini_cwd_with_defaults() -> SwampIni {
     read_yini_with_defaults(Path::new("./"))
 }
 
@@ -40,7 +43,8 @@ pub fn read_yini(path: &Path) -> Option<SwampIni> {
     }
 }
 
-#[must_use] pub fn read_yini_with_defaults(path: &Path) -> SwampIni {
+#[must_use]
+pub fn read_yini_with_defaults(path: &Path) -> SwampIni {
     if let Some(found) = read_yini(path) {
         found
     } else {

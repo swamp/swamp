@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
 use crate::Type;
+use crate::supporting_types::{AnonymousStructType, EnumType, NamedStructType, Signature};
 use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
@@ -80,7 +80,7 @@ impl Display for TypeKind {
             Self::Bool => write!(f, "bool"),
             Self::Unit => write!(f, "()"),
             Self::Tuple(types) => write!(f, "({})", seq_fmt::comma(types)),
-            Self::NamedStruct(named_struct) => write!(f, "{named_struct}", ),
+            Self::NamedStruct(named_struct) => write!(f, "{named_struct}",),
             Self::AnonymousStruct(anon_struct) => write!(f, "{anon_struct}"),
             Self::Range(range) => {
                 if let Self::AnonymousStruct(anon_struct) = &*range.kind {

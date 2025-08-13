@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use swamp_types::TypeRef;
-use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_isa::HeapMemoryAddress;
+use swamp_vm_isa::aligner::{SAFE_ALIGNMENT, align};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{HeapPlacedArray, HeapPlacedType};
 

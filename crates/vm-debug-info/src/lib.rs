@@ -4,8 +4,8 @@
  */
 use seq_map::SeqMap;
 use swamp_vm_isa::InstructionPosition;
-use swamp_vm_types::types::FunctionInfo;
 use swamp_vm_types::Meta;
+use swamp_vm_types::types::FunctionInfo;
 
 pub struct FileOffsetEntry {
     pub start_pc: u32, // This u32 is the instruction index, so this should be plenty

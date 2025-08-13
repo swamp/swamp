@@ -5,8 +5,8 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::err::ErrorKind;
 use swamp_semantic::ScopeInfo;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
@@ -369,9 +369,10 @@ impl Analyzer<'_> {
 
                 // Check if the type is a scalar/primitive type
                 let is_scalar = match &*expression_type.kind {
-                    TypeKind::Int | TypeKind::Float | TypeKind::Bool | TypeKind::StringView { .. } => {
-                        true
-                    }
+                    TypeKind::Int
+                    | TypeKind::Float
+                    | TypeKind::Bool
+                    | TypeKind::StringView { .. } => true,
                     _ => false,
                 };
 

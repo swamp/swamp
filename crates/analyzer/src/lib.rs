@@ -669,9 +669,7 @@ impl<'a> Analyzer<'a> {
                 variable,
                 maybe_annotation,
                 source_expression,
-            ) => {
-                self.analyze_variable_definition(variable, maybe_annotation, source_expression)
-            }
+            ) => self.analyze_variable_definition(variable, maybe_annotation, source_expression),
 
             swamp_ast::ExpressionKind::VariableAssignment(variable, source_expression) => {
                 self.analyze_variable_assignment(variable, source_expression)
@@ -1023,7 +1021,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1057,14 +1055,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1469,7 +1467,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2469,8 +2468,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2711,7 +2710,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2743,9 +2743,13 @@ impl<'a> Analyzer<'a> {
             self.analyze_type(&found_ast_type, &TypeAnalyzeContext::default())
         });
 
-        self.common_variable_util(variable, maybe_found_variable, maybe_annotated_type, source_expression)
+        self.common_variable_util(
+            variable,
+            maybe_found_variable,
+            maybe_annotated_type,
+            source_expression,
+        )
     }
-
 
     /// # Errors
     ///
@@ -2756,31 +2760,44 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let maybe_found_variable = self.try_find_variable(&variable.name);
 
-        let maybe_annotated_type = maybe_found_variable.as_ref().map(|var| var.resolved_type.clone());
-        self.common_variable_util(variable, maybe_found_variable, maybe_annotated_type, source_expression)
+        let maybe_annotated_type = maybe_found_variable
+            .as_ref()
+            .map(|var| var.resolved_type.clone());
+        self.common_variable_util(
+            variable,
+            maybe_found_variable,
+            maybe_annotated_type,
+            source_expression,
+        )
     }
 
-    pub fn common_variable_util(&mut self,
-                                variable: &swamp_ast::Variable,
-                                maybe_found_variable: Option<VariableRef>,
-                                maybe_annotation: Option<TypeRef>,
-                                source_expression: &swamp_ast::Expression, ) -> Expression {
+    pub fn common_variable_util(
+        &mut self,
+        variable: &swamp_ast::Variable,
+        maybe_found_variable: Option<VariableRef>,
+        maybe_annotation: Option<TypeRef>,
+        source_expression: &swamp_ast::Expression,
+    ) -> Expression {
         let ast_name_node = variable.name.clone();
         let name_node = self.to_node(&ast_name_node).clone();
         let maybe_annotated_type = match maybe_found_variable {
-            None => {
-                maybe_annotation
-            }
-            Some(ref found_variable) => { Some(found_variable.resolved_type.clone()) }
+            None => maybe_annotation,
+            Some(ref found_variable) => Some(found_variable.resolved_type.clone()),
         };
 
-
-        let (final_variable_type, final_source_expression) = self.resolve_variable_expression(maybe_annotated_type.clone(), source_expression, &ast_name_node);
+        let (final_variable_type, final_source_expression) = self.resolve_variable_expression(
+            maybe_annotated_type.clone(),
+            source_expression,
+            &ast_name_node,
+        );
 
         // verify the type now
 
         if !final_variable_type.can_be_stored_in_variable() {
-            return self.create_err(ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type), &ast_name_node);
+            return self.create_err(
+                ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
+                &ast_name_node,
+            );
         }
 
         let kind = if let Some(found_var) = &maybe_found_variable {
@@ -2793,7 +2810,10 @@ impl<'a> Analyzer<'a> {
                 .refs
                 .add(found_var.symbol_id.into(), name_node);
 
-            ExpressionKind::VariableReassignment(found_var.clone(), Box::from(final_source_expression))
+            ExpressionKind::VariableReassignment(
+                found_var.clone(),
+                Box::from(final_source_expression),
+            )
         } else {
             let created_variable = self.create_local_variable(
                 &variable.name,
@@ -2811,7 +2831,12 @@ impl<'a> Analyzer<'a> {
 
     // Tries to infer the source expression needed
     // as well as the variable final type
-    pub fn resolve_variable_expression(&mut self, maybe_annotated_type: Option<TypeRef>, source_expression: &swamp_ast::Expression, node: &swamp_ast::Node) -> (TypeRef, Expression) {
+    pub fn resolve_variable_expression(
+        &mut self,
+        maybe_annotated_type: Option<TypeRef>,
+        source_expression: &swamp_ast::Expression,
+        node: &swamp_ast::Node,
+    ) -> (TypeRef, Expression) {
         let source_expr = if let Some(target_type) = &maybe_annotated_type {
             self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)
         } else {
@@ -2837,7 +2862,14 @@ impl<'a> Analyzer<'a> {
                     //And can change and that will affect the supposedly independent string view
                     //mutable aliasing
                     let string_type = self.shared.state.types.string();
-                    self.create_expr(ExpressionKind::IntrinsicCallEx(IntrinsicFunction::StringDuplicate, vec![ArgumentExpression::Expression(source_expr)]), string_type, node)
+                    self.create_expr(
+                        ExpressionKind::IntrinsicCallEx(
+                            IntrinsicFunction::StringDuplicate,
+                            vec![ArgumentExpression::Expression(source_expr)],
+                        ),
+                        string_type,
+                        node,
+                    )
                 } else {
                     source_expr
                 }
@@ -3990,10 +4022,12 @@ impl<'a> Analyzer<'a> {
         Some(intrinsic_and_signature)
     }
 
-    fn ptr_member_signature(&mut self,
-                            self_type: &TypeRef,
-                            field_name_str: &str,
-                            node: &swamp_ast::Node, ) -> Option<(IntrinsicFunction, Signature)> {
+    fn ptr_member_signature(
+        &mut self,
+        self_type: &TypeRef,
+        field_name_str: &str,
+        node: &swamp_ast::Node,
+    ) -> Option<(IntrinsicFunction, Signature)> {
         let self_type_param = TypeForParameter {
             name: "self".to_string(),
             resolved_type: self_type.clone(),
@@ -4020,9 +4054,7 @@ impl<'a> Analyzer<'a> {
                 };
                 (IntrinsicFunction::VecLen, signature)
             }
-            _ => {
-                return None
-            }
+            _ => return None,
         };
 
         Some(intrinsic_and_signature)
@@ -4528,11 +4560,7 @@ impl<'a> Analyzer<'a> {
                 node,
             ),
             TypeKind::Pointer(inner) => {
-                self.ptr_member_signature(
-                    type_that_member_is_on,
-                    field_name_str,
-                    node,
-                )
+                self.ptr_member_signature(type_that_member_is_on, field_name_str, node)
             }
             TypeKind::Byte => {
                 let element_type = self.shared.state.types.byte();
@@ -4743,8 +4771,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

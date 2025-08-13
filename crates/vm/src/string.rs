@@ -4,11 +4,11 @@
  */
 use crate::memory::ExecutionMode;
 use crate::memory::Memory;
-use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg};
 use std::num::ParseIntError;
 use std::{mem::size_of, ptr};
 use swamp_vm_isa::{
-    StringIterator, VecHeader, MAX_STRING_LEN, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET,
+    MAX_STRING_LEN, StringIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader,
 };
 
 impl Vm {

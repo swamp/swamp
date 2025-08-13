@@ -5,7 +5,7 @@
 use source_map_cache::SourceMap;
 use swamp_analyzer::prelude::Program;
 use swamp_analyzer::{Analyzer, AnalyzerOptions};
-use swamp_dep_loader::{parse_local_modules_and_get_order, DependencyParser, ParsedAstModule};
+use swamp_dep_loader::{DependencyParser, ParsedAstModule, parse_local_modules_and_get_order};
 use swamp_modules::prelude::*;
 use swamp_modules::symtbl::SymbolTableRef;
 use swamp_semantic::prelude::Error;

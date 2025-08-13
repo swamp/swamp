@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_isa::{
-    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
+    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
 };
 
 impl Vm {
@@ -111,7 +111,6 @@ impl Vm {
             eprintln!("vec_copy {target_vec_addr:X} <- {source_vec_addr:X}")
         }
 
-
         let mut_vec_ptr = self
             .memory
             .get_heap_ptr(target_vec_addr as usize)
@@ -147,7 +146,9 @@ impl Vm {
                 let source_len = (*src_vec_ptr).element_count;
                 let source_elem_size = (*src_vec_ptr).element_size;
 
-                eprintln!("vec_copy target capacity: {target_capacity} len: {target_len} elem_size:{target_elem_size}, source_capacity:{source_capacity}, source_len:{source_len}, elem_size:{source_elem_size}")
+                eprintln!(
+                    "vec_copy target capacity: {target_capacity} len: {target_len} elem_size:{target_elem_size}, source_capacity:{source_capacity}, source_len:{source_len}, elem_size:{source_elem_size}"
+                )
             }
 
             let target_capacity = (*mut_vec_ptr).capacity;
@@ -160,8 +161,9 @@ impl Vm {
             let total_bytes_to_copy = (VEC_HEADER_SIZE.0 - 2)
                 + ((*src_vec_ptr).element_count as u32) * (*src_vec_ptr).element_size;
 
-
-            eprintln!("vec_copy bytes_to_copy: {total_bytes_to_copy} to {target_tail:X} from {source_tail:X}");
+            eprintln!(
+                "vec_copy bytes_to_copy: {total_bytes_to_copy} to {target_tail:X} from {source_tail:X}"
+            );
 
             ptr::copy_nonoverlapping(source_raw, target_raw, total_bytes_to_copy as usize);
 

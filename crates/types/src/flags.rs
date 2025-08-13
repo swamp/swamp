@@ -26,7 +26,6 @@ impl TypeFlags {
     pub const IS_ALLOWED_RETURN: Self = Self(1 << 3);
     pub const ALLOWED_FOR_VARIABLE: Self = Self(1 << 4);
 
-
     #[must_use]
     pub const fn new() -> Self {
         Self::NONE
@@ -126,7 +125,10 @@ impl TypeFlags {
             }
             TypeKind::Tuple(types) => {
                 // A tuple is blittable if all its component types are blittable
-                if types.iter().all(|t| t.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW)) {
+                if types
+                    .iter()
+                    .all(|t| t.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW))
+                {
                     flags = flags
                         .union(Self::ALLOWED_FOR_SCOPED_BORROW)
                         .union(Self::ALLOWED_FOR_VARIABLE)
@@ -154,10 +156,18 @@ impl TypeFlags {
                 }
             }
             TypeKind::NamedStruct(named) => {
-                if named.anon_struct_type.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW) {
+                if named
+                    .anon_struct_type
+                    .flags
+                    .contains(Self::ALLOWED_FOR_SCOPED_BORROW)
+                {
                     flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
                 }
-                if named.anon_struct_type.flags.contains(Self::ALLOWED_FOR_VARIABLE) {
+                if named
+                    .anon_struct_type
+                    .flags
+                    .contains(Self::ALLOWED_FOR_VARIABLE)
+                {
                     flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if named.anon_struct_type.flags.contains(Self::IS_STORAGE) {
@@ -172,19 +182,18 @@ impl TypeFlags {
                 }
             }
             TypeKind::AnonymousStruct(anon) => {
-                if anon
-                    .field_name_sorted_fields
-                    .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW))
-                {
+                if anon.field_name_sorted_fields.iter().all(|(_name, field)| {
+                    field
+                        .field_type
+                        .flags
+                        .contains(Self::ALLOWED_FOR_SCOPED_BORROW)
+                }) {
                     flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
                 }
 
-                if anon
-                    .field_name_sorted_fields
-                    .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_FOR_VARIABLE))
-                {
+                if anon.field_name_sorted_fields.iter().all(|(_name, field)| {
+                    field.field_type.flags.contains(Self::ALLOWED_FOR_VARIABLE)
+                }) {
                     flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
 

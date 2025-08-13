@@ -1,6 +1,6 @@
-pub mod prelude;
 pub mod aligner;
 pub mod opcode;
+pub mod prelude;
 
 use crate::aligner::align;
 use hashmap_mem::MapHeader;
@@ -95,7 +95,6 @@ impl MemoryOffset {
     }
 }
 
-
 #[derive(Copy, Clone, Debug)]
 pub struct MemoryAddress(pub u32);
 
@@ -106,7 +105,6 @@ impl MemoryAddress {
     }
 }
 
-
 #[derive(Debug, Copy, Clone)]
 pub struct HeapMemoryAddress(pub u32);
 impl Display for HeapMemoryAddress {
@@ -114,7 +112,6 @@ impl Display for HeapMemoryAddress {
         write!(f, "${:08X}", self.0)
     }
 }
-
 
 #[derive(Debug, Copy, Clone)]
 pub struct HeapMemoryRegion {
@@ -127,7 +124,6 @@ impl Display for HeapMemoryRegion {
         write!(f, "{}:{}", self.addr, self.size)
     }
 }
-
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct MemorySize(pub u32);
@@ -147,7 +143,6 @@ impl Display for MemorySize {
         }
     }
 }
-
 
 #[derive(Copy, Clone)]
 pub struct CountU32(pub u32);
@@ -177,7 +172,6 @@ impl Div<Self> for MemorySize {
     }
 }
 
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionPosition(pub u32);
 
@@ -201,7 +195,6 @@ impl Sub<Self> for InstructionPosition {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ProgramCounterDelta(pub i16);
-
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum MemoryAlignment {
@@ -266,7 +259,6 @@ impl TryInto<MemoryAlignment> for usize {
     }
 }
 
-
 #[derive(Copy, Clone, Debug)]
 pub struct FrameMemorySize(pub u32);
 
@@ -282,7 +274,6 @@ impl FrameMemorySize {
         Self(self.0 + inc.0)
     }
 }
-
 
 pub const INT_SIZE: u16 = 4;
 pub const FLOAT_SIZE: u16 = 4;

@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use std::mem::size_of;
-use swamp_vm_isa::{HeapMemoryAddress, VecHeader, VEC_HEADER_MAGIC_CODE};
-use swamp_vm_types::types::{string_type, BasicTypeKind, Destination, VmType};
+use swamp_vm_isa::{HeapMemoryAddress, VEC_HEADER_MAGIC_CODE, VecHeader};
+use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, string_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(
@@ -19,8 +19,7 @@ impl CodeBuilder<'_> {
     ) {
         let string_bytes = string.as_bytes();
         let string_byte_count = string_bytes.len();
-        let string_cap_bytes =
-            string_byte_count;
+        let string_cap_bytes = string_byte_count;
 
         // Create a combined buffer for the header and string data
         let total_size = size_of::<VecHeader>() + string_byte_count;

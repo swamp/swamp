@@ -26,9 +26,7 @@ impl CodeBuilder<'_> {
         // Choose the appropriate load instruction based on the target register's type
         let underlying_scalar = target.underlying();
         match underlying_scalar.kind {
-            BasicTypeKind::Fixed32
-            | BasicTypeKind::U32
-            | BasicTypeKind::S32 => {
+            BasicTypeKind::Fixed32 | BasicTypeKind::U32 | BasicTypeKind::S32 => {
                 self.builder.add_ld32_from_pointer_with_offset_u16(
                     target,
                     &source_location.base_ptr_reg,
@@ -46,7 +44,7 @@ impl CodeBuilder<'_> {
                     &format!("{comment} (load bool)"),
                 );
             }
-            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}", ),
+            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",),
         }
     }
 
@@ -112,9 +110,7 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             }
-            BasicTypeKind::U32
-            | BasicTypeKind::S32
-            | BasicTypeKind::Fixed32 => {
+            BasicTypeKind::U32 | BasicTypeKind::S32 | BasicTypeKind::Fixed32 => {
                 self.builder.add_st32_using_ptr_with_offset(
                     memory_location,
                     primitive_reg,
@@ -123,15 +119,17 @@ impl CodeBuilder<'_> {
                 );
             }
 
-            _ => if underlying.kind.is_reg_copy() {
-                self.builder.add_st32_using_ptr_with_offset(
-                    memory_location,
-                    primitive_reg,
-                    node,
-                    comment,
-                );
-            } else {
-                panic!("must be scalar {underlying} {}", primitive_reg.ty);
+            _ => {
+                if underlying.kind.is_reg_copy() {
+                    self.builder.add_st32_using_ptr_with_offset(
+                        memory_location,
+                        primitive_reg,
+                        node,
+                        comment,
+                    );
+                } else {
+                    panic!("must be scalar {underlying} {}", primitive_reg.ty);
+                }
             }
         }
     }
@@ -199,7 +197,7 @@ impl CodeBuilder<'_> {
                     node,
                     comment,
                 )
-                    .ptr_reg
+                .ptr_reg
             }
             Destination::Unit => {
                 panic!("can not compute effective address from unit")

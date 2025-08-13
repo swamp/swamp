@@ -164,7 +164,9 @@ impl fmt::Display for ErrorKind {
             Self::UnknownIdentifier(_) => "unknown identifier",
             Self::UnknownTypeReference => "unknown type",
             Self::UnusedVariablesCanNotBeMut => "unused variable cannot be mutable",
-            Self::VariableTypeMustBeAtLeastTransient(_) => "variable type must be at least ephemeral",
+            Self::VariableTypeMustBeAtLeastTransient(_) => {
+                "variable type must be at least ephemeral"
+            }
             Self::OverwriteVariableWithAnotherType => {
                 "cannot overwrite variable with a different type"
             }

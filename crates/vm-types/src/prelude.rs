@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 pub use crate::{
+    InstructionPositionOffset, InstructionRange,
     types::{
         BasicType, BasicTypeId, BasicTypeKind, BasicTypeRef, OffsetMemoryItem, VmType, VmTypeOrigin,
     },
-    InstructionPositionOffset,
-    InstructionRange,
 };

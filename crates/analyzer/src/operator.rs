@@ -116,17 +116,15 @@ impl Analyzer<'_> {
                 &BinaryOperatorKind::Add,
                 TypeKind::StringStorage(..) | TypeKind::StringView(..),
                 TypeKind::StringStorage(..) | TypeKind::StringView(..),
-            ) => {
-                Some((
-                    BinaryOperator {
-                        left: Box::new(left),
-                        right: Box::new(right),
-                        kind,
-                        node,
-                    },
-                    self.shared.state.types.string(),
-                ))
-            }
+            ) => Some((
+                BinaryOperator {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    kind,
+                    node,
+                },
+                self.shared.state.types.string(),
+            )),
 
             // Comparison operators
             (

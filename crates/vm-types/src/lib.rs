@@ -9,11 +9,12 @@ use std::cmp::PartialOrd;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Div, Sub};
 use swamp_vm_isa::prelude::align;
-use swamp_vm_isa::{CountU32, FrameMemorySize, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize};
+use swamp_vm_isa::{
+    CountU32, FrameMemorySize, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize,
+};
 
 pub mod prelude;
 pub mod types;
-
 
 pub struct StackMemoryAddress(pub u32);
 
@@ -24,7 +25,6 @@ impl Add<MemorySize> for StackMemoryAddress {
         Self(self.0 + rhs.0)
     }
 }
-
 
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, PartialEq)]
 pub struct HeapMemorySize(pub u32);
@@ -65,7 +65,6 @@ impl Display for CountU16 {
     }
 }
 
-
 impl FrameMemoryAddress {
     #[must_use]
     pub const fn advance(&self, memory_offset: MemoryOffset) -> Self {
@@ -90,14 +89,12 @@ impl FrameMemoryAddress {
     }
 }
 
-
 impl StackMemoryAddress {
     #[must_use]
     pub const fn add(&self, memory_size: MemorySize) -> Self {
         Self(self.0 + memory_size.0)
     }
 }
-
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct FrameMemoryAddress(pub u32);
@@ -159,7 +156,6 @@ impl FrameMemoryRegion {
     }
 }
 
-
 #[derive(Debug, Copy, Clone)]
 pub struct FrameMemoryAddressIndirectPointer(pub FrameMemoryAddress);
 
@@ -172,7 +168,6 @@ impl TempFrameMemoryAddress {
         self.0
     }
 }
-
 
 #[must_use]
 pub fn align_to(addr: MemoryOffset, alignment: MemoryAlignment) -> MemoryOffset {
@@ -203,7 +198,6 @@ pub fn adjust_size_to_alignment(
 ) -> MemorySize {
     align_to(MemoryOffset(unaligned_size.0), max_alignment).to_size()
 }
-
 
 #[derive(Debug, Copy, Eq, PartialEq, Hash, Clone, Ord, PartialOrd)]
 pub struct HeapMemoryOffset(pub u32);
@@ -421,7 +415,6 @@ pub struct Meta {
 
 #[derive(Debug)]
 pub struct PatchPosition(pub InstructionPosition);
-
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstructionPositionOffset(pub u32);

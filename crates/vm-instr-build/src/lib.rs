@@ -4,15 +4,15 @@
  */
 use source_map_node::Node;
 use swamp_vm_isa::opcode::OpCode;
-use swamp_vm_isa::{BinaryInstruction, FrameMemorySize, HeapMemoryAddress, InstructionPosition, MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta};
-use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
-use swamp_vm_types::{
-    CountU16, MemoryLocation, PointerLocation,
+use swamp_vm_isa::{
+    BinaryInstruction, FrameMemorySize, HeapMemoryAddress, InstructionPosition, MemoryAlignment,
+    MemoryOffset, MemorySize, ProgramCounterDelta,
 };
+use swamp_vm_types::types::{BasicTypeKind, TypedRegister};
+use swamp_vm_types::{CountU16, MemoryLocation, PointerLocation};
 pub use swamp_vm_types::{
-    FrameMemoryAddress, FrameMemoryRegion,
-    HeapMemoryOffset, InstructionPositionOffset,
-    Meta, PatchPosition, ZFlagPolarity,
+    FrameMemoryAddress, FrameMemoryRegion, HeapMemoryOffset, InstructionPositionOffset, Meta,
+    PatchPosition, ZFlagPolarity,
 };
 
 /// Keeps track of all the instructions, and the corresponding meta information (comments and node).

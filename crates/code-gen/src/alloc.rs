@@ -6,9 +6,7 @@ use swamp_types::TypeRef;
 use swamp_vm_isa::{MemoryAlignment, MemorySize};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{BasicTypeRef, FramePlacedType};
-use swamp_vm_types::{
-    align_frame_addr, FrameMemoryAddress, FrameMemoryRegion,
-};
+use swamp_vm_types::{FrameMemoryAddress, FrameMemoryRegion, align_frame_addr};
 use tracing::error;
 
 #[derive(Copy, Clone, Debug)]
