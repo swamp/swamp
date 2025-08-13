@@ -135,10 +135,6 @@ fn str_storage_to_storage_in_mem_place() {
     assert(s.str == "hello", "equality failed")
 }
 
-struct IllegalStruct {
-	x: String,
-}
-
 #[test]
 fn str_view_from_str_storage_in_mem_place() {
     s = StringInStruct { str: "hello",.. }

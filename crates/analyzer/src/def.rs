@@ -2,14 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::Analyzer;
 use crate::to_string::{
-    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
-    internal_generate_to_pretty_string_parameterless_function_for_type,
+    internal_generate_to_pretty_string_function_for_type, internal_generate_to_pretty_string_parameterless_function_for_type,
     internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
+    ExpressionGenerator,
 };
 use crate::types::TypeAnalyzeContext;
+use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_ast::Node;
@@ -222,16 +222,23 @@ impl Analyzer<'_> {
 
             let payload_type = match ast_variant_type {
                 swamp_ast::EnumVariantType::Simple(_variant_name_node) => self.types().unit(),
-                swamp_ast::EnumVariantType::Direct(_variant_name_node, direct_type) => {
+                swamp_ast::EnumVariantType::Direct(variant_name_node, direct_type) => {
                     let analyzed_type =
                         self.analyze_type(direct_type, &TypeAnalyzeContext::default());
                     // If the direct_type is actually a single-element tuple, unwrap it
-                    match &*analyzed_type.kind {
+                    let final_type = match &*analyzed_type.kind {
                         TypeKind::Tuple(elements) if elements.len() == 1 => elements[0].clone(),
                         _ => analyzed_type,
+                    };
+
+
+                    if !final_type.is_storage() {
+                        self.add_err(ErrorKind::NeedStorage, &variant_name_node);
                     }
+
+                    final_type
                 }
-                swamp_ast::EnumVariantType::Tuple(_variant_name_node, types) => {
+                swamp_ast::EnumVariantType::Tuple(variant_name_node, types) => {
                     let mut vec = Vec::new();
                     for tuple_type in types {
                         let resolved_type =
@@ -240,13 +247,20 @@ impl Analyzer<'_> {
                     }
 
                     // Single-element tuples should be treated as direct types
-                    if vec.len() == 1 {
+                    let tuple_type = if vec.len() == 1 {
                         vec.into_iter().next().unwrap()
                     } else {
                         self.types().tuple(vec)
+                    };
+
+
+                    if !tuple_type.is_storage() {
+                        self.add_err(ErrorKind::NeedStorage, &variant_name_node);
                     }
+
+                    tuple_type
                 }
-                swamp_ast::EnumVariantType::Struct(_variant_name_node, ast_struct_fields) => {
+                swamp_ast::EnumVariantType::Struct(variant_name_node, ast_struct_fields) => {
                     let mut fields = SeqMap::new();
 
                     for field_with_type in &ast_struct_fields.fields {
@@ -323,6 +337,10 @@ impl Analyzer<'_> {
             .add_named_type(enum_type_ref.clone())
         {
             return self.add_err(ErrorKind::SemanticError(sem_err), &enum_type_name.name);
+        }
+
+        if !enum_type_ref.is_storage() {
+            self.add_err(ErrorKind::NeedStorage, &enum_type_name.name);
         }
 
         self.add_default_functions(&enum_type_ref, &enum_type_name.name);
@@ -520,6 +538,10 @@ impl Analyzer<'_> {
                     &ast_struct_def.identifier.name,
                 );
             }
+        }
+
+        if !named_struct_type_ref.is_storage() {
+            self.add_err(ErrorKind::NeedStorage, &ast_struct_def.identifier.name);
         }
 
         self.add_default_functions(&named_struct_type_ref, &ast_struct_def.identifier.name);
@@ -999,11 +1021,11 @@ impl Analyzer<'_> {
             // Check if we already have the functions to avoid infinite recursion
             if !self.shared.state.associated_impls.is_prepared(ty)
                 || self
-                    .shared
-                    .state
-                    .associated_impls
-                    .get_internal_member_function(ty, "string")
-                    .is_none()
+                .shared
+                .state
+                .associated_impls
+                .get_internal_member_function(ty, "string")
+                .is_none()
             {
                 self.add_default_functions(ty, node);
             }

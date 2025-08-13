@@ -9,13 +9,13 @@ use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
-    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, MAX_REGISTER_INDEX_FOR_PARAMETERS,
-    RepresentationOfRegisters, SpilledRegisterRegion,
+    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
+use swamp_semantic::{formal_function_name, InternalFunctionDefinitionRef, InternalMainExpression};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
@@ -293,7 +293,7 @@ impl TopLevelGenState {
 
         let mut instruction_builder = InstructionBuilder::new(&mut self.builder_state);
 
-        let temp_pool = HwmTempRegisterPool::new(128, 32);
+        let temp_pool = HwmTempRegisterPool::new(128, 64);
 
         let ctx = Context::new();
 

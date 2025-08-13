@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-use crate::FrameAndVariableInfo;
 use crate::alloc::StackFrameAllocator;
+use crate::FrameAndVariableInfo;
 use seq_map::SeqMap;
 use source_map_node::Node;
 use std::fmt::Write;
@@ -30,7 +30,7 @@ pub fn layout_variables(
 ) -> FrameAndVariableInfo {
     let mut local_frame_allocator = StackFrameAllocator::new(FrameMemoryRegion::new(
         FrameMemoryAddress(0),
-        MemorySize(64 * 1024 * 1024),
+        MemorySize(1024 * 1024 * 1024),
     ));
 
     let mut enter_comment = "variables:\n".to_string();
@@ -70,7 +70,7 @@ pub fn layout_variables(
                     var_frame_placed_type.size().0,
                     var_ref.assigned_name
                 )
-                .unwrap();
+                    .unwrap();
 
                 frame_memory_infos.push(FrameAddressInfo {
                     kind,

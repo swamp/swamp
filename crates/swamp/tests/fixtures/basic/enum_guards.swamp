@@ -7,7 +7,7 @@ enum NumberWrapper {
 enum Status {
     Active Int,    // score
     Inactive,
-    Pending String,
+    Pending String<42>,
 }
 
 fn is_even(n: Int) -> Bool {

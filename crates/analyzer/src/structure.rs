@@ -288,6 +288,7 @@ impl Analyzer<'_> {
                 rest_was_specified,
             );
             let ty = anon_expr.ty.clone();
+
             self.create_expr(
                 ExpressionKind::NamedStructLiteral(Box::from(anon_expr)),
                 ty,
