@@ -108,7 +108,7 @@ impl CodeBuilder<'_> {
                     ctx,
                 );
             }
-            TypeKind::StringView(..) => {
+            TypeKind::StringView(..) | TypeKind::StringStorage(..) => {
                 self.emit_for_loop_lambda(
                     destination,
                     node,

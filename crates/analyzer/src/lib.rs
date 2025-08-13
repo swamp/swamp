@@ -1540,7 +1540,7 @@ impl<'a> Analyzer<'a> {
         let resolved_type = &resolved_expression.ty.clone();
         let int_type = Some(self.types().int());
         let (key_type, value_type): (Option<TypeRef>, TypeRef) = match &*resolved_type.kind {
-            TypeKind::StringView(_, char) => (int_type, char.clone()),
+            TypeKind::StringView(_, char) | TypeKind::StringStorage(_, char, _) => (int_type, char.clone()),
             TypeKind::SliceView(element_type) => (int_type, element_type.clone()),
             TypeKind::VecStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
             TypeKind::SparseStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
@@ -1648,7 +1648,8 @@ impl<'a> Analyzer<'a> {
                     let string_literal =
                         ExpressionKind::StringLiteral(processed_string.to_string());
                     let basic_literal = string_literal;
-                    let string_type = self.shared.state.types.string_storage(processed_string.bytes().len());
+                    let string_type = self.shared.state.types.string();
+                    self.add_default_functions(&string_type, node);
                     self.create_expr(basic_literal, string_type, string_node)
                 }
                 swamp_ast::StringPart::Interpolation(expression, format_specifier) => {

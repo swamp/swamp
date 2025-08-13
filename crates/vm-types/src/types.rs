@@ -342,6 +342,10 @@ impl BasicTypeKind {
         !self.is_mutable_reference()
     }
 
+    pub(crate) const fn is_storage(&self) -> bool {
+        !self.is_storage()
+    }
+
     #[must_use]
     pub const fn needs_copy_back_when_mutable(&self) -> bool {
         self.is_scalar()
@@ -1547,9 +1551,9 @@ impl BasicType {
 
     #[must_use]
     pub fn is_str(&self) -> bool {
-        matches!(self.kind, BasicTypeKind::StringView { .. })
+        (matches!(self.kind, BasicTypeKind::StringView { .. } )
             && self.total_size == STRING_PTR_SIZE
-            && self.max_alignment == STRING_PTR_ALIGNMENT
+            && self.max_alignment == STRING_PTR_ALIGNMENT) || matches!(self.kind, BasicTypeKind::StringStorage {..})
     }
 
     #[must_use]

@@ -147,7 +147,7 @@ impl Analyzer<'_> {
             },
             swamp_ast::LiteralKind::String(processed_string) => (
                 ExpressionKind::StringLiteral(processed_string.to_string()),
-                self.shared.state.types.string_storage(processed_string.bytes().len()),
+                self.shared.state.types.string(),
             ),
             swamp_ast::LiteralKind::Bool => match Self::str_to_bool(node_text) {
                 Err(_bool_err) => return self.create_err(ErrorKind::BoolConversionError, ast_node),
@@ -292,7 +292,9 @@ impl Analyzer<'_> {
             swamp_ast::LiteralKind::Tuple(expressions) => {
                 let (tuple_type_ref, resolved_items) =
                     self.analyze_tuple_literal(expressions, context);
+
                 let tuple_type = self.shared.state.types.tuple(tuple_type_ref);
+
                 self.ensure_default_functions_for_type(&tuple_type, &expressions[0].node);
                 (ExpressionKind::TupleLiteral(resolved_items), tuple_type)
             }
@@ -326,7 +328,6 @@ impl Analyzer<'_> {
         let mut tuple_types = Vec::new();
         for expr in &expressions {
             let item_type = expr.ty.clone();
-            info!(?item_type, "item_type in tuple");
             tuple_types.push(item_type);
         }
 
