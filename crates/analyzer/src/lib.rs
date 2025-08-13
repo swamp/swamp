@@ -1021,7 +1021,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1055,14 +1055,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1467,7 +1467,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -1540,7 +1541,9 @@ impl<'a> Analyzer<'a> {
         let resolved_type = &resolved_expression.ty.clone();
         let int_type = Some(self.types().int());
         let (key_type, value_type): (Option<TypeRef>, TypeRef) = match &*resolved_type.kind {
-            TypeKind::StringView(_, char) | TypeKind::StringStorage(_, char, _) => (int_type, char.clone()),
+            TypeKind::StringView(_, char) | TypeKind::StringStorage(_, char, _) => {
+                (int_type, char.clone())
+            }
             TypeKind::SliceView(element_type) => (int_type, element_type.clone()),
             TypeKind::VecStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
             TypeKind::SparseStorage(element_type, _fixed_size) => (int_type, element_type.clone()),
@@ -1665,7 +1668,9 @@ impl<'a> Analyzer<'a> {
                         .associated_impls
                         .get_internal_member_function(&expr.ty, "string");
 
-                    if matches!(tk, TypeKind::StringView { .. }) || matches!(tk, TypeKind::StringStorage(..)) {
+                    if matches!(tk, TypeKind::StringView { .. })
+                        || matches!(tk, TypeKind::StringStorage(..))
+                    {
                         expr
                     } else {
                         let underlying = expr.ty.clone();
@@ -1678,7 +1683,9 @@ impl<'a> Analyzer<'a> {
                         let call_expr_kind = if maybe_to_string.is_none() {
                             let string_type = self.types().string();
 
-                            ExpressionKind::StringLiteral(format!("missing to_string for: {string_type}"))
+                            ExpressionKind::StringLiteral(format!(
+                                "missing to_string for: {string_type}"
+                            ))
                             /* TODO:
 
                                        return self.create_err(
@@ -2468,8 +2475,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2710,7 +2717,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2765,8 +2773,8 @@ impl<'a> Analyzer<'a> {
             .map(|var| var.resolved_type.clone());
 
         let variable_type = match maybe_found_variable {
-            None => { VariableType::Local }
-            Some(ref var) => { var.variable_type.clone() }
+            None => VariableType::Local,
+            Some(ref var) => var.variable_type.clone(),
         };
         self.common_variable_util(
             variable,
@@ -4789,8 +4797,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

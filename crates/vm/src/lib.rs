@@ -4,10 +4,10 @@
  */
 extern crate core;
 
+use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
-use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -1337,7 +1337,10 @@ impl Vm {
         set_reg!(self, dest_bool_reg, compare == octet as u32);
         #[cfg(feature = "debug_vm")]
         if true || self.debug_operations_enabled {
-            eprintln!("{compare} {octet} result: {}", get_reg!(self,dest_bool_reg))
+            eprintln!(
+                "{compare} {octet} result: {}",
+                get_reg!(self, dest_bool_reg)
+            )
         }
     }
 
