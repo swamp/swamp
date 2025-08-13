@@ -266,8 +266,8 @@ enum ArtifactLabel {
 }
 
 struct ArtifactData {
-    name: String,
-	description: String,
+    name: String<64>,
+		description: String<64>,
 }
 
 const ARTIFACT_LIB: [ArtifactID:ArtifactData; 100] = [

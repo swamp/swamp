@@ -30,6 +30,20 @@ fn set_view_from_view_constant_equality() {
     assert(a == "hello", 'must be same')
 }
 
+#[test]
+fn store_in_tuple() {
+    val1, str_val, bool_val = (100, "swamp_tuple", true,) // Intentional trailing comma
+    assert(val1 == 100, 'Simple tuple: val1 is wrong')
+    assert(str_val == "swamp_tuple", 'Simple tuple: str_val is wrong')
+    assert(bool_val == true, 'Simple tuple: bool_val is wrong')
+}
+
+#[test]
+fn string_interpolation_int() {
+	a = 3
+	print('a:{a}')
+}
+
 
 #[test]
 fn set_storage_from_view_constant() {
@@ -68,7 +82,7 @@ fn append_storage_and_storage() {
 
     assert(c.len() == 12, "len failed")
     assert(c.capacity() == 12, "capacity failed")
-    assert(c[0].int() == 104, 'first char failed {c[0].int()}')
+    assert(c[0].int() == 104, 'first') //first char failed {c[0].int()}
 
     assert(c == "hello world!", "equality failed")
 }
@@ -121,7 +135,9 @@ fn str_storage_to_storage_in_mem_place() {
     assert(s.str == "hello", "equality failed")
 }
 
-// =============== THINGS TO FIX =================
+struct IllegalStruct {
+	x: String,
+}
 
 #[test]
 fn str_view_from_str_storage_in_mem_place() {
@@ -135,11 +151,12 @@ fn str_view_from_str_storage_in_mem_place() {
     assert(s.str == "hello", "equality failed")
 }
 
-/*
+
+// =============== THINGS TO FIX =================
+
 
 #[test]
 fn mut_is_not_allowed() {
     // TODO: THIS SHOULD NOT COMPILE
     mut a = "hello"
 }
-*/

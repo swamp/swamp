@@ -35,6 +35,8 @@ impl CodeBuilder<'_> {
             // We don't need to initialize memory here since the caller (enum_variant) has already done it
             // or the expression itself will handle initialization
 
+            self.emit_initialize_memory_for_any_type(&target_memory_location_for_tuple_item.location, node, "initialize memory for tuple item");
+
             self.emit_expression_into_target_memory(
                 &target_memory_location_for_tuple_item.location,
                 expr,
@@ -60,8 +62,7 @@ impl CodeBuilder<'_> {
         // TODO: Bring this back//assert_eq!(tuple_type.total_size.0, tuple_base_pointer_reg.size().0);
 
         for (tuple_index, target_variable) in target_variables.iter().enumerate() {
-            if target_variable.is_unused {
-            } else {
+            if target_variable.is_unused {} else {
                 let frame_placed_target_variable_register =
                     self.get_variable_register(target_variable).clone();
 
@@ -77,7 +78,7 @@ impl CodeBuilder<'_> {
 
                 //let source_location = Destination::new_location(source_memory_location);
 
-                if frame_placed_target_variable_register.ty.is_scalar() {
+                if frame_placed_target_variable_register.ty.is_reg_copy() {
                     self.emit_load_value_from_memory_source(
                         &frame_placed_target_variable_register,
                         &source_memory_location,

@@ -10,7 +10,7 @@ use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
 use swamp_semantic::{Expression, Fp};
 use swamp_types::prelude::*;
-use tracing::{error, warn};
+use tracing::{error, info, warn};
 
 impl Analyzer<'_> {
     pub fn analyze_enum_variant_struct_literal(
@@ -147,7 +147,7 @@ impl Analyzer<'_> {
             },
             swamp_ast::LiteralKind::String(processed_string) => (
                 ExpressionKind::StringLiteral(processed_string.to_string()),
-                self.shared.state.types.string(),
+                self.shared.state.types.string_storage(processed_string.bytes().len()),
             ),
             swamp_ast::LiteralKind::Bool => match Self::str_to_bool(node_text) {
                 Err(_bool_err) => return self.create_err(ErrorKind::BoolConversionError, ast_node),
@@ -326,6 +326,7 @@ impl Analyzer<'_> {
         let mut tuple_types = Vec::new();
         for expr in &expressions {
             let item_type = expr.ty.clone();
+            info!(?item_type, "item_type in tuple");
             tuple_types.push(item_type);
         }
 

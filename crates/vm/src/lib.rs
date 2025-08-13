@@ -4,10 +4,10 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -1227,6 +1227,12 @@ impl Vm {
         let val = get_reg!(self, val_reg) as i32;
 
         self.create_string(dst_reg, &val.to_string());
+
+        #[cfg(feature = "debug_vm")]
+        if true || self.debug_operations_enabled {
+            let read_back_string = self.read_string(get_reg!(self, dst_reg), self.memory());
+            eprintln!("i32_to_string: {val}, {dst_reg} '{read_back_string}'");
+        }
     }
 
     #[inline]
