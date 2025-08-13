@@ -247,10 +247,10 @@ impl EnumType {
     pub fn are_all_variants_with_blittable_payload(&self) -> bool {
         self.variants.iter().all(|(_name, variant)| {
             assert!(
-                variant.payload_type.is_blittable(),
+                variant.payload_type.allowed_for_scoped_borrow(),
                 "what is wrong with this variant {variant}"
             );
-            variant.payload_type.is_blittable()
+            variant.payload_type.allowed_for_scoped_borrow()
         })
     }
 

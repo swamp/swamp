@@ -1470,6 +1470,36 @@ impl CodeBuilder<'_> {
                 }
             }
 
+            IntrinsicFunction::StringDuplicate => {
+                if target_destination.is_register() {
+                    self.builder.add_string_duplicate(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "string_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for string duplicate intrinsic",
+                    );
+
+                    self.builder.add_string_duplicate(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "string_duplicate",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store string duplicate result to memory",
+                    );
+                }
+            }
+
             IntrinsicFunction::StringToString => {
                 if target_destination.is_register() {
                     self.builder.add_string_to_string(

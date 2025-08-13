@@ -70,13 +70,13 @@ impl Type {
     #[inline]
     #[must_use]
     pub const fn can_be_stored_in_transient_field(&self) -> bool {
-        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
+        self.flags.contains(TypeFlags::ALLOWED_FOR_SCOPED_BORROW)
     }
 
     #[inline]
     #[must_use]
     pub const fn can_be_stored_in_variable(&self) -> bool {
-        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
+        self.flags.contains(TypeFlags::ALLOWED_FOR_VARIABLE)
     }
 
     #[must_use]
@@ -104,8 +104,8 @@ impl Type {
 
     #[inline]
     #[must_use]
-    pub const fn is_blittable(&self) -> bool {
-        self.flags.contains(TypeFlags::ALLOWED_AS_TRANSIENT)
+    pub const fn allowed_for_scoped_borrow(&self) -> bool {
+        self.flags.contains(TypeFlags::ALLOWED_FOR_SCOPED_BORROW)
     }
 
     /// Check if this type requires explicit collection storage allocation from caller

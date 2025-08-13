@@ -18,12 +18,14 @@ impl Default for TypeFlags {
 impl TypeFlags {
     pub const NONE: Self = Self(0);
     /// Can be held on to for a short while
-    pub const ALLOWED_AS_TRANSIENT: Self = Self(1 << 0);
+    pub const ALLOWED_FOR_SCOPED_BORROW: Self = Self(1 << 0);
     /// Is the type self-contained in a register
     pub const IS_SCALAR: Self = Self(1 << 1);
     /// Can it be stored in a sum or product type
     pub const IS_STORAGE: Self = Self(1 << 2);
     pub const IS_ALLOWED_RETURN: Self = Self(1 << 3);
+    pub const ALLOWED_FOR_VARIABLE: Self = Self(1 << 4);
+
 
     #[must_use]
     pub const fn new() -> Self {
@@ -52,32 +54,34 @@ impl TypeFlags {
             }
             TypeKind::Any => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
-                    .union(Self::IS_STORAGE)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
                     .union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Pointer(_) => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
                     .union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::Codepoint => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Byte => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Int => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
@@ -85,21 +89,23 @@ impl TypeFlags {
 
             TypeKind::Float => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Bool => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
             TypeKind::Unit => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW) // is this true?
                     .union(Self::IS_STORAGE)
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
@@ -108,7 +114,8 @@ impl TypeFlags {
             TypeKind::Enum(enum_type) => {
                 if enum_type.are_all_variants_with_blittable_payload() {
                     flags = flags
-                        .union(Self::ALLOWED_AS_TRANSIENT)
+                        .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                        .union(Self::ALLOWED_FOR_VARIABLE)
                         .union(Self::IS_ALLOWED_RETURN);
                 } else {
                     panic!("enums should be blittable")
@@ -119,9 +126,10 @@ impl TypeFlags {
             }
             TypeKind::Tuple(types) => {
                 // A tuple is blittable if all its component types are blittable
-                if types.iter().all(|t| t.flags.contains(Self::ALLOWED_AS_TRANSIENT)) {
+                if types.iter().all(|t| t.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW)) {
                     flags = flags
-                        .union(Self::ALLOWED_AS_TRANSIENT)
+                        .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                        .union(Self::ALLOWED_FOR_VARIABLE)
                         .union(Self::IS_ALLOWED_RETURN);
                 }
                 if types.iter().all(|t| t.flags.contains(Self::IS_STORAGE)) {
@@ -130,9 +138,13 @@ impl TypeFlags {
             }
             TypeKind::Optional(inner) => {
                 // An optional is blittable if its inner type is blittable
-                if inner.flags.contains(Self::ALLOWED_AS_TRANSIENT) {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW) {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
                 }
+                if inner.flags.contains(Self::ALLOWED_FOR_VARIABLE) {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
+                }
+
                 // TODO: check this
                 if inner.flags.contains(Self::IS_ALLOWED_RETURN) {
                     flags = flags.union(Self::IS_ALLOWED_RETURN);
@@ -142,8 +154,11 @@ impl TypeFlags {
                 }
             }
             TypeKind::NamedStruct(named) => {
-                if named.anon_struct_type.flags.contains(Self::ALLOWED_AS_TRANSIENT) {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if named.anon_struct_type.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW) {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if named.anon_struct_type.flags.contains(Self::ALLOWED_FOR_VARIABLE) {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if named.anon_struct_type.flags.contains(Self::IS_STORAGE) {
                     flags = flags.union(Self::IS_STORAGE);
@@ -160,9 +175,17 @@ impl TypeFlags {
                 if anon
                     .field_name_sorted_fields
                     .iter()
-                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_AS_TRANSIENT))
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_FOR_SCOPED_BORROW))
                 {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+
+                if anon
+                    .field_name_sorted_fields
+                    .iter()
+                    .all(|(_name, field)| field.field_type.flags.contains(Self::ALLOWED_FOR_VARIABLE))
+                {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
 
                 anon.field_name_sorted_fields
@@ -179,20 +202,29 @@ impl TypeFlags {
                 }
             }
             TypeKind::MapStorage(key, value, _) => {
-                if key.is_blittable() && value.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if key.allowed_for_scoped_borrow() && value.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+
+                if key.can_be_stored_in_variable() && value.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
 
                 if key.is_storage() && value.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
                 }
             }
+
             TypeKind::DynamicLengthMapView(_, _) => {
                 flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
+
             TypeKind::FixedCapacityAndLengthArray(inner, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -202,8 +234,11 @@ impl TypeFlags {
                 flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::VecStorage(inner, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -215,19 +250,24 @@ impl TypeFlags {
 
             TypeKind::StringStorage(_, _, _) => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_STORAGE);
             }
 
             TypeKind::StringView(..) => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_ALLOWED_RETURN);
             }
 
             TypeKind::StackStorage(inner, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -238,8 +278,11 @@ impl TypeFlags {
             }
 
             TypeKind::QueueStorage(inner, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -249,8 +292,11 @@ impl TypeFlags {
                 flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::GridStorage(inner, _, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -260,8 +306,11 @@ impl TypeFlags {
                 flags = flags.union(Self::IS_ALLOWED_RETURN);
             }
             TypeKind::SparseStorage(inner, _) => {
-                if inner.is_blittable() {
-                    flags = flags.union(Self::ALLOWED_AS_TRANSIENT);
+                if inner.allowed_for_scoped_borrow() {
+                    flags = flags.union(Self::ALLOWED_FOR_SCOPED_BORROW);
+                }
+                if inner.can_be_stored_in_variable() {
+                    flags = flags.union(Self::ALLOWED_FOR_VARIABLE);
                 }
                 if inner.is_storage() {
                     flags = flags.union(Self::IS_STORAGE);
@@ -272,7 +321,8 @@ impl TypeFlags {
             }
             TypeKind::Range(_inner) => {
                 flags = flags
-                    .union(Self::ALLOWED_AS_TRANSIENT)
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
                     .union(Self::IS_ALLOWED_RETURN);
                 flags = flags.union(Self::IS_STORAGE);
             }

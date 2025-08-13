@@ -239,7 +239,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
                 .with_note(&format!("identifier: {x}"))
         }
         ErrorKind::VariableTypeMustBeAtLeastTransient(encountered_type) => {
-            Report::build(Kind::Error, 46, "variable type must be blittable", span)
+            Report::build(Kind::Error, 46, "variable type must be at least storage or string view (ephemeral)", span)
                 .with_note(&format!("encountered_type: {encountered_type}"))
         }
         ErrorKind::ArrayIndexMustBeInt(_) => {

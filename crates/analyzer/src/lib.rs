@@ -27,6 +27,7 @@ use crate::variable::MAX_VIRTUAL_REGISTER;
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
+use std::env::var;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
@@ -46,7 +47,7 @@ use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
-use tracing::error;
+use tracing::{error, info};
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -668,11 +669,9 @@ impl<'a> Analyzer<'a> {
                 variable,
                 maybe_annotation,
                 source_expression,
-            ) => self.analyze_create_variable(
-                variable,
-                Option::from(maybe_annotation),
-                source_expression,
-            ),
+            ) => {
+                self.analyze_variable_definition(variable, maybe_annotation, source_expression)
+            }
 
             swamp_ast::ExpressionKind::VariableAssignment(variable, source_expression) => {
                 self.analyze_variable_assignment(variable, source_expression)
@@ -2729,6 +2728,27 @@ impl<'a> Analyzer<'a> {
 
     /// # Errors
     ///
+    pub fn analyze_variable_definition(
+        &mut self,
+        variable: &swamp_ast::Variable,
+        annotation_type: &Option<swamp_ast::Type>,
+        source_expression: &swamp_ast::Expression,
+    ) -> Expression {
+        let maybe_found_variable = self.try_find_variable(&variable.name);
+        if maybe_found_variable.is_some() {
+            return self.create_err(ErrorKind::OverwriteVariableNotAllowedHere, &variable.name);
+        }
+
+        let maybe_annotated_type = annotation_type.as_ref().map(|found_ast_type| {
+            self.analyze_type(&found_ast_type, &TypeAnalyzeContext::default())
+        });
+
+        self.common_variable_util(variable, maybe_found_variable, maybe_annotated_type, source_expression)
+    }
+
+
+    /// # Errors
+    ///
     pub fn analyze_variable_assignment(
         &mut self,
         variable: &swamp_ast::Variable,
@@ -2736,61 +2756,34 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let maybe_found_variable = self.try_find_variable(&variable.name);
 
-        let required_type = maybe_found_variable
-            .as_ref()
-            .map(|found_variable| found_variable.resolved_type.clone());
+        let maybe_annotated_type = maybe_found_variable.as_ref().map(|var| var.resolved_type.clone());
+        self.common_variable_util(variable, maybe_found_variable, maybe_annotated_type, source_expression)
+    }
 
-        let source_expr = if let Some(target_type) = &required_type {
-            self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)
-        } else {
-            let any_type_context = TypeContext::new_anything_argument(true);
-            self.analyze_expression(source_expression, &any_type_context)
-        };
-
-        // Check if the variable type (target type) can be stored in a variable
-        // Skip this check for parameters since they already have allocated storage
-        let target_type = if let Some(found_var) = &maybe_found_variable {
-            &found_var.resolved_type
-        } else {
-            &source_expr.ty
-        };
-
-        // Only check blittable for local variables, not parameters
-        let should_check_blittable = if let Some(found_var) = &maybe_found_variable {
-            !matches!(found_var.variable_type, VariableType::Parameter)
-        } else {
-            true // New variable definitions need to be blittable
-        };
-
-        if should_check_blittable && !target_type.is_blittable() {
-            let debug_text = self.get_text(&variable.name);
-            if !debug_text.starts_with('_') {
-                return self.create_err(
-                    ErrorKind::VariableTypeMustBeAtLeastTransient(target_type.clone()),
-                    &variable.name,
-                );
+    pub fn common_variable_util(&mut self,
+                                variable: &swamp_ast::Variable,
+                                maybe_found_variable: Option<VariableRef>,
+                                maybe_annotation: Option<TypeRef>,
+                                source_expression: &swamp_ast::Expression, ) -> Expression {
+        let ast_name_node = variable.name.clone();
+        let name_node = self.to_node(&ast_name_node).clone();
+        let maybe_annotated_type = match maybe_found_variable {
+            None => {
+                maybe_annotation
             }
+            Some(ref found_variable) => { Some(found_variable.resolved_type.clone()) }
+        };
+
+
+        let (final_variable_type, final_source_expression) = self.resolve_variable_expression(maybe_annotated_type.clone(), source_expression, &ast_name_node);
+
+        // verify the type now
+
+        if !final_variable_type.can_be_stored_in_variable() {
+            return self.create_err(ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type), &ast_name_node);
         }
 
-        let kind: ExpressionKind = if let Some(found_var) = maybe_found_variable {
-            if !found_var.is_mutable() {
-                return self.create_err(ErrorKind::VariableIsNotMutable, &variable.name);
-            }
-            if !self
-                .types()
-                .compatible_with(&found_var.resolved_type, &source_expr.ty)
-            {
-                return self.create_err(
-                    ErrorKind::IncompatibleTypes {
-                        expected: source_expr.ty,
-                        found: found_var.resolved_type.clone(),
-                    },
-                    &variable.name,
-                );
-            }
-            self.check_mutable_variable_assignment(source_expression, &source_expr.ty, variable);
-
-            let name_node = self.to_node(&variable.name);
+        let kind = if let Some(found_var) = &maybe_found_variable {
             self.shared
                 .state
                 .refs
@@ -2800,11 +2793,121 @@ impl<'a> Analyzer<'a> {
                 .refs
                 .add(found_var.symbol_id.into(), name_node);
 
-            ExpressionKind::VariableReassignment(found_var, Box::from(source_expr))
+            ExpressionKind::VariableReassignment(found_var.clone(), Box::from(final_source_expression))
         } else {
-            if !source_expr.ty.is_blittable() {
+            let created_variable = self.create_local_variable(
+                &variable.name,
+                Option::from(&variable.is_mutable),
+                &final_variable_type,
+                true,
+            );
+
+            ExpressionKind::VariableDefinition(created_variable, Box::from(final_source_expression))
+        };
+
+        let unit_type = self.shared.state.types.unit();
+        self.create_expr(kind, unit_type, &variable.name)
+    }
+
+    // Tries to infer the source expression needed
+    // as well as the variable final type
+    pub fn resolve_variable_expression(&mut self, maybe_annotated_type: Option<TypeRef>, source_expression: &swamp_ast::Expression, node: &swamp_ast::Node) -> (TypeRef, Expression) {
+        let source_expr = if let Some(target_type) = &maybe_annotated_type {
+            self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)
+        } else {
+            let any_type_context = TypeContext::new_anything_argument(true);
+            self.analyze_expression(source_expression, &any_type_context)
+        };
+
+        // Check if the variable type (target type) can be stored in a variable
+        // Skip this check for parameters since they already have allocated storage
+        let determined_variable_type = if let Some(found_type) = &maybe_annotated_type {
+            &found_type
+        } else {
+            &source_expr.ty.clone()
+        };
+
+        // Check special conversion
+        let final_source_expr = match &*determined_variable_type.kind {
+            TypeKind::StringView(_, _) => {
+                info!(?source_expr.ty.kind, "what is this then");
+                if matches!(*source_expr.ty.kind, TypeKind::StringStorage(..)) {
+                    //Special case where a string view is "pointing" to a string storage
+                    //We can not allow that since the string storage is mutable
+                    //And can change and that will affect the supposedly independent string view
+                    //mutable aliasing
+                    let string_type = self.shared.state.types.string();
+                    self.create_expr(ExpressionKind::IntrinsicCallEx(IntrinsicFunction::StringDuplicate, vec![ArgumentExpression::Expression(source_expr)]), string_type, node)
+                } else {
+                    source_expr
+                }
+            }
+            _ => source_expr,
+        };
+
+        (determined_variable_type.clone(), final_source_expr)
+    }
+
+    /*
+    /// # Errors
+    ///
+    pub fn analyze_variable_assignment_util(
+        &mut self,
+        variable: &swamp_ast::Variable,
+        variable_type: VariableType,
+        maybe_annotated_type: Option<TypeRef>,
+        is_reassign: bool,
+        source_expression: &swamp_ast::Expression,
+    ) -> Expression {
+        info!(?target_type.kind,"1vari assignment");
+
+        // Only check blittable for local variables, not parameters
+        let only_check_ephemeral = variable_type == VariableType::Parameter;
+
+        if only_check_ephemeral && !target_type.can_be_stored_in_variable() {
+            let debug_text = self.get_text(&variable.name);
+            if !debug_text.starts_with('_') {
+                return self.create_err(
+                    ErrorKind::VariableTypeMustBeAtLeastTransient(target_type.clone()),
+                    &variable.name,
+                );
+            }
+        }
+
+        info!(?target_type.kind,"vari assignment");
+
+        let kind: ExpressionKind = if is_reassign {
+            if !variable.is_mutable() {
+                return self.create_err(ErrorKind::VariableIsNotMutable, &variable.name);
+            }
+
+            let Some(resolved_type) = maybe_annotated_type else {
+                return self.create_err(ErrorKind::UnexpectedType, &variable.name);
+            };
+
+            if !self
+                .types()
+                .compatible_with(&resolved_type, &real_source_expr.ty)
+            {
+                return self.create_err(
+                    ErrorKind::IncompatibleTypes {
+                        expected: real_source_expr.ty,
+                        found: resolved_type.clone(),
+                    },
+                    &variable.name,
+                );
+            }
+
+            self.check_mutable_variable_assignment(source_expression, &real_source_expr.ty, variable);
+
+            let name_node = self.to_node(&variable.name);
+
+
+            ExpressionKind::VariableReassignment(found_var.clone(), Box::from(real_source_expr.clone()))
+        } else {
+            if !real_source_expr.ty.can_be_stored_in_variable() {
                 let text = self.get_text(&variable.name);
-                error!(?text, ?required_type, ?source_expr, "variable is wrong");
+                error!(?text, ?maybe_annotated_type, ?real_source_expr, "variable is wrong");
             }
 
             // If it is mutable, we might need to clone the source
@@ -2812,18 +2915,20 @@ impl<'a> Analyzer<'a> {
             if variable.is_mutable.is_some() {
                 self.check_mutable_variable_assignment(
                     source_expression,
-                    &source_expr.ty,
+                    &real_source_expr.ty,
                     variable,
                 );
             }
-            let new_var = self.create_variable(variable, &source_expr.ty);
-            ExpressionKind::VariableDefinition(new_var, Box::from(source_expr))
+            let new_var = self.create_variable(variable, &real_source_expr.ty.clone());
         };
+
 
         let unit_type = self.shared.state.types.unit();
         self.create_expr(kind, unit_type, &variable.name)
     }
+    */
 
+    /*
     fn analyze_create_variable(
         &mut self,
         var: &swamp_ast::Variable,
@@ -2844,12 +2949,7 @@ impl<'a> Analyzer<'a> {
         } else {
             resolved_source.ty.clone()
         };
-        let var_ref = self.create_local_variable(
-            &var.name,
-            Option::from(&var.is_mutable),
-            &resulting_type,
-            true,
-        );
+
 
         if *resulting_type.kind == TypeKind::Unit {
             return self.create_err(
@@ -2864,6 +2964,8 @@ impl<'a> Analyzer<'a> {
 
         self.create_expr(kind, unit_type, &var.name)
     }
+
+     */
 
     fn add_location_item(
         &mut self,

@@ -115,6 +115,7 @@ pub enum IntrinsicFunction {
     EnumDiscriminant,
     EnumFromDiscriminant,
     PtrFromU32,
+    StringDuplicate,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -174,6 +175,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::StringStartsWith => "string_starts_with",
             Self::StringToInt => "string_to_int",
             Self::StringToFloat => "string_to_float",
+            Self::StringDuplicate => "string_dup",
 
             // Enum
             Self::EnumDiscriminant => "enum_discriminant",

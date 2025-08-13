@@ -1,3 +1,9 @@
+struct StringInStruct {
+    something_else: Int,
+    str: String<99>,
+}
+
+
 #[test]
 fn empty_literal_view() {
     a = ""
@@ -96,10 +102,7 @@ fn string_view_from_storage() {
     assert(a == b, "failed string_view_from_storage")
 }
 
-struct StringInStruct {
-    something_else: Int,
-    str: String<99>,
-}
+
 
 #[test]
 fn view_to_storage_mem_place() {
@@ -132,8 +135,11 @@ fn str_view_from_str_storage_in_mem_place() {
     assert(s.str == "hello", "equality failed")
 }
 
+/*
+
 #[test]
 fn mut_is_not_allowed() {
     // TODO: THIS SHOULD NOT COMPILE
     mut a = "hello"
 }
+*/

@@ -7,8 +7,8 @@ use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
 use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
+use swamp_vm_types::types::{int_type, Destination, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -64,9 +64,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Destination::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -520,7 +520,7 @@ impl CodeBuilder<'_> {
                 | ExpressionKind::HostCall(_, _)
                 | ExpressionKind::IntrinsicCallEx(_, _) => {
                     let basic_type = layout_cache.layout(&expr.ty);
-                    basic_type.is_aggregate()
+                    !basic_type.is_reg_copy()
                 }
                 _ => false,
             }

@@ -69,7 +69,7 @@ impl Analyzer<'_> {
             // Check if this expression needs materialization for fixed-size types
             if self.needs_materialization(&resolved_expr) {
                 // and then check if it will be possible to create temporary storage:
-                if resolved_expr.ty.is_blittable() {
+                if resolved_expr.ty.allowed_for_scoped_borrow() {
                     ArgumentExpression::MaterializedExpression(resolved_expr)
                 } else {
                     // Error

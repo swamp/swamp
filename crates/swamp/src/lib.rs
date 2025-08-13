@@ -57,6 +57,7 @@ pub fn compile_and_analyze(
         show_warnings: true,
         show_hints: false,
         show_information: false,
+        allow_unsafe: true,
     };
     swamp_compile::bootstrap_and_compile(source_map, module_path, &options)
 }
@@ -74,6 +75,7 @@ pub fn compile_and_codegen(
             show_hints: false,
             show_information: false,
             show_types: false,
+            allow_unsafe: true,
         },
         code_gen_options: CodeGenOptions {
             show_disasm: false,
