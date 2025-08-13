@@ -1,15 +1,15 @@
-struct StringInStruct {
-    something_else: Int,
-    str: String<99>,
-}
-
-
 #[test]
 fn empty_literal_view() {
     a = ""
     assert(a.len() == 0, "empty length")
     assert(a.capacity() == 0, "empty length")
 }
+
+struct StringInStruct {
+    something_else: Int,
+    str: String<99>,
+}
+
 
 #[test]
 fn utf8_literal_view() {
@@ -151,12 +151,53 @@ fn str_view_from_str_storage_in_mem_place() {
     assert(s.str == "hello", "equality failed")
 }
 
+fn return_specific_string_view() -> String {
+	"hello"
+}
+
+fn return_string_view_from_storage() -> String {
+	s: String<42> = "hello"
+	s
+}
+
+#[test]
+fn return_string_view_from_string_view() {
+	a = return_specific_string_view()
+	assert(a == "hello", 'should have worked')
+}
+
+
+fn return_string_storage_to_string_view() {
+	a = return_string_view_from_storage()
+	assert(a == "hello", 'should have worked')
+}
+
 
 // =============== THINGS TO FIX =================
 
+// Should not be allowed
+fn modify_string(mut s: String) {
+	s = "something else"
+}
 
 #[test]
-fn mut_is_not_allowed() {
-    // TODO: THIS SHOULD NOT COMPILE
+fn allowed_to_borrow_string() {
+	mut s = "meteorite"
+	modify_string(&s)
+	assert(s == "something else", "was overwritten")
+}
+
+#[test]
+fn read_bytes() {
+	mut s = "meteorite"
+	a = s[0]
+	assert(s == "meteorite", "was overwritten")
+	assert(a.int() == 0x6d, 'different byte {a}')
+}
+
+
+#[test]
+fn allowed() {
     mut a = "hello"
+		a = "goodbye"
 }

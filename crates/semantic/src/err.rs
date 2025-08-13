@@ -134,11 +134,13 @@ pub enum ErrorKind {
     OutOfVirtualRegisters,
     CanNotCreateTemporaryStorage,
     CloseToMaxVirtualRegister,
+    CanNotBeBorrowed,
 }
 
 impl fmt::Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let error_message = match self {
+            Self::CanNotBeBorrowed => "can not be borrowed",
             Self::CloseToMaxVirtualRegister => "close to max virtual register",
             Self::CanNotCreateTemporaryStorage => "can not create temporary storage",
             Self::OutOfVirtualRegisters => "out of virtual registers",
@@ -369,6 +371,7 @@ impl ErrorKind {
             Self::OutOfVirtualRegisters => 92,
             Self::CanNotCreateTemporaryStorage => 93,
             Self::CloseToMaxVirtualRegister => 94,
+            Self::CanNotBeBorrowed => 95,
         }
     }
 }

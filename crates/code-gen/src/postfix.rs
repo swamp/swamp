@@ -8,8 +8,8 @@ use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{u8_type, Destination, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     /// Handles the final load/conversion from `current_location` to `output_destination` if needed.
@@ -722,7 +722,7 @@ impl CodeBuilder<'_> {
                 let variable_reg = self.get_variable_register(variable);
 
                 // Same logic for variables - return memory location for pointers
-                if !variable_reg.ty.is_aggregate() {
+                if variable_reg.ty.is_reg_copy() {
                     return Destination::Register(variable_reg.clone());
                 }
 

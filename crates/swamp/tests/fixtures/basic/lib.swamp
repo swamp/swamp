@@ -1,4 +1,3 @@
-mod anonymous_struct
 mod any
 mod arithmetic
 mod array
@@ -34,6 +33,7 @@ mod slice
 mod sparse
 mod stack
 mod stepping
+mod string_basic
 mod string
 mod struct
 mod transformer

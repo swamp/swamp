@@ -35,6 +35,7 @@ mod sparse
 mod stack
 mod stepping
 mod string
+mod string_basic
 mod struct
 mod transformer
 mod tuple

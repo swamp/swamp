@@ -613,8 +613,30 @@ impl<'a> Analyzer<'a> {
         //info!(?expr, "analyze expression");
         let expr = if let Some(found_expected_type) = context.expected_type {
             let reduced_expected = found_expected_type;
-
             let reduced_encountered_type = encountered_type;
+
+
+            if matches!(
+            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+            (TypeKind::StringView(_, _), TypeKind::StringStorage(..))
+         ) {
+                //Special case where a string view is "pointing" to a string storage
+                //We can not allow that since the string storage is mutable
+                //And can change and that will affect the supposedly independent string view
+                //mutable aliasing
+                let string_type = self.shared.state.types.string();
+                return self.create_expr(
+                    ExpressionKind::IntrinsicCallEx(
+                        IntrinsicFunction::StringDuplicate,
+                        vec![ArgumentExpression::Expression(expr)],
+                    ),
+                    string_type,
+                    &ast_expression.node,
+                );
+            }
+
+            //|  (TypeKind::StringStorage(..), TypeKind::StringView(_,_))
+
 
             if self
                 .shared
@@ -732,6 +754,9 @@ impl<'a> Analyzer<'a> {
                     let inner_expr =
                         self.analyze_to_location(expression, context, LocationSide::Rhs);
                     let ty = inner_expr.ty.clone();
+                    if matches!(&*ty.kind, TypeKind::StringView(..)) {
+                        return self.create_err(ErrorKind::CanNotBeBorrowed, &expression.node);
+                    }
                     self.create_expr(
                         ExpressionKind::BorrowMutRef(Box::from(inner_expr)),
                         ty,
@@ -1021,7 +1046,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1055,14 +1080,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1467,8 +1492,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2475,8 +2499,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                .expect_immutable()
-                .unwrap()
+                    .expect_immutable()
+                    .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2717,8 +2741,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2880,30 +2903,9 @@ impl<'a> Analyzer<'a> {
         };
 
         // Check special conversion
-        let final_source_expr = match &*determined_variable_type.kind {
-            TypeKind::StringView(_, _) => {
-                if matches!(*source_expr.ty.kind, TypeKind::StringStorage(..)) {
-                    //Special case where a string view is "pointing" to a string storage
-                    //We can not allow that since the string storage is mutable
-                    //And can change and that will affect the supposedly independent string view
-                    //mutable aliasing
-                    let string_type = self.shared.state.types.string();
-                    self.create_expr(
-                        ExpressionKind::IntrinsicCallEx(
-                            IntrinsicFunction::StringDuplicate,
-                            vec![ArgumentExpression::Expression(source_expr)],
-                        ),
-                        string_type,
-                        node,
-                    )
-                } else {
-                    source_expr
-                }
-            }
-            _ => source_expr,
-        };
 
-        (determined_variable_type.clone(), final_source_expr)
+
+        (determined_variable_type.clone(), source_expr)
     }
 
     /*
@@ -4797,8 +4799,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4886,6 +4888,7 @@ impl<'a> Analyzer<'a> {
             );
             return coerced;
         }
+
 
         error!(?expected_type, ?encountered_type, "incompatible");
         self.create_err(
