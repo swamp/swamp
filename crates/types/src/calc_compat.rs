@@ -109,6 +109,7 @@ impl Type {
                 sig_a.parameters.len() == sig_b.parameters.len()
             }
 
+
             // Default case
             _ => self.compatible_with_storage_and_view(other, type_cache),
         }
@@ -120,6 +121,20 @@ impl Type {
         other_view: &Self,
         type_cache: &mut TypeCache,
     ) -> bool {
+        if matches!(&*self.kind, TypeKind::StringView(..)) && matches!(&*other_view.kind, TypeKind::VecStorage(inner_type,..) | TypeKind::DynamicLengthVecView(inner_type)) {
+            match &*other_view.kind {
+                TypeKind::VecStorage(inner_type, ..) | TypeKind::DynamicLengthVecView(inner_type) => {
+                    //let byte_type = type_cache.byte();
+                    return false;
+                }
+                _ => {}
+            }
+        }
+
+        if matches!(&*self.kind, TypeKind::StringStorage(..)) && matches!(&*other_view.kind, TypeKind::StringView(inner_type,..) ) {
+            //return false;
+        }
+
         let left_kind = self.lowest_common_denominator_vec_like_view();
         let right_kind = other_view.lowest_common_denominator_vec_like_view();
         if left_kind.is_some() && right_kind.is_some() {

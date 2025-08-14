@@ -1,3 +1,5 @@
+
+
 #[test]
 fn empty_literal_view() {
     a = ""
@@ -169,9 +171,106 @@ fn return_string_storage_to_string_view() {
 }
 
 
-// =============== THINGS TO FIX =================
+#[test]
+fn read_bytes() {
+	mut s = "meteorite"
+	a = s[0]
+	assert(s == "meteorite", "was overwritten")
+	assert(a.int() == 0x6d, 'different byte {a}')
+}
 
-// Should not be allowed
+#[test]
+fn allowed() {
+    mut a = "hello"
+		a = "goodbye"
+}
+
+#[test]
+fn convert_from_byte_storage_to_string_view() {
+	mut a: Vec<Byte; 16> = []
+
+	a.push(0x6d)
+
+	b: String = a // This should make a copy
+	assert(b == "m", "string could not be converted")
+
+	a.clear()
+	a.push(0xff)
+	assert(b == "m", "string was modified")
+}
+
+
+#[test]
+fn convert_from_byte_storage_to_string_storage() {
+	mut a: Vec<Byte; 16> = []
+
+	a.push(0x6d)
+
+	b: String<96> = a // This should make a copy
+	assert(b == "m", "string could not be converted")
+
+	a.clear()
+	a.push(0xff)
+	assert(b == "m", "string was modified")
+}
+
+struct Parser {
+    is_eof: Bool,
+    str: String<2048>,
+}
+
+impl Parser {
+	fn parse(mut self, s: String) {
+		self.str = s
+	}
+}
+
+#[test]
+fn create_parser() {
+	mut p = Parser {..}
+	p.parse("hello")
+
+	assert(p.str == "hello", "initialization wrong")
+}
+
+
+struct Element {
+    name: String<32>,
+}
+
+enum Node {
+	Element Element,
+	Text String<42>,
+}
+
+enum Command {
+    Text String<1024>,
+		Newline,
+}
+
+fn match_node(tag: Node) -> Command {
+
+	result = match tag {
+
+		Element element -> {
+				Command::Newline
+		}
+
+		Text text_str -> {
+			Command::Text(text_str)
+		}
+	}
+
+	result
+}
+
+#[test]
+fn match_problem() {
+	command = match_node(Node::Text("before"))
+	assert(command.string() == "Command::Text(\"before\")", 'match problem persists {command}')
+}
+
+// =============== THINGS TO FIX =================
 fn modify_string(mut s: String) {
 	s = "something else"
 }
@@ -183,17 +282,6 @@ fn allowed_to_borrow_string() {
 	assert(s == "something else", "was overwritten")
 }
 
-#[test]
-fn read_bytes() {
-	mut s = "meteorite"
-	a = s[0]
-	assert(s == "meteorite", "was overwritten")
-	assert(a.int() == 0x6d, 'different byte {a}')
-}
 
 
-#[test]
-fn allowed() {
-    mut a = "hello"
-		a = "goodbye"
-}
+

@@ -176,6 +176,7 @@ pub enum OpCode {
     // String
     StringAppend,
     StringDuplicate,
+    BytesToString,
     StringRepeat,
     StringCmp,
     StringToString,
@@ -205,6 +206,7 @@ pub enum OpCode {
     StringToInt,
     StringToFloat,
     CheckU8,
+    BytesToStringStorage,
 }
 
 impl OpCode {
@@ -386,6 +388,8 @@ impl OpCode {
             Self::StringIterInit => "str.iter",
             Self::StringIterNext => "str.iter.next",
             Self::StringIterNextPair => "str.iter.next.pair",
+            Self::BytesToString => "str.from_bytes",
+            Self::BytesToStringStorage => "str.storage.from_bytes",
         }
     }
 }

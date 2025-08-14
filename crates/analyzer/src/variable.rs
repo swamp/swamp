@@ -13,16 +13,24 @@ use swamp_semantic::{
 };
 use swamp_symbol::{ScopedSymbolId, Symbol, SymbolKind};
 use swamp_types::prelude::*;
+use tracing::info;
 
 pub const MAX_VIRTUAL_REGISTER: usize = 48;
 
+pub struct VariableSlot {
+    pub scope_index: usize,
+    pub unique_id_in_function: usize,
+    pub virtual_register: u8,
+}
+
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This function uses high watermark approach - simply increment counter, restore on scope pop
-pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
+pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
     if scope.total_scopes.current_register >= MAX_VIRTUAL_REGISTER {
         None
     } else {
         scope.total_scopes.current_register += 1;
+        info!(?scope.total_scopes.current_register, "allocated register");
         Some(scope.total_scopes.current_register as u8)
     }
 }
@@ -81,6 +89,7 @@ impl Analyzer<'_> {
         );
     }
 
+
     pub(crate) fn create_local_variable(
         &mut self,
         variable: &swamp_ast::Node,
@@ -105,6 +114,7 @@ impl Analyzer<'_> {
             variable_type_ref,
         )
     }
+
 
     pub(crate) fn create_local_variable_parameter_like(
         &mut self,
@@ -187,6 +197,88 @@ impl Analyzer<'_> {
         );
 
         variable_ref
+    }
+
+
+    pub fn reserve_slot(&mut self, node: &Node) -> Option<VariableSlot> {
+        let Some(virtual_register) = allocate_next_register(&mut self.scope) else {
+            self.add_err_resolved(ErrorKind::OutOfVirtualRegisters, node);
+            return None;
+        };
+
+        let scope_index = self.scope.active_scope.block_scope_stack.len() - 1;
+        let unique_id_in_function = { self.scope.active_scope.emit_variable_index() };
+
+        Some(VariableSlot {
+            scope_index,
+            virtual_register,
+            unique_id_in_function,
+        })
+    }
+
+
+    pub fn create_local_variable_with_reserved_slot(&mut self, slot: VariableSlot, ast_var: swamp_ast::Variable, variable_type_ref: &TypeRef) -> (VariableRef, String) {
+        let variable = self.to_node(&ast_var.name);
+        let variable_str = self.get_text(&ast_var.name).to_string();
+        let is_mutable = if let Some(ast_node) = ast_var.is_mutable {
+            Some(self.to_node(&ast_node))
+        } else {
+            None
+        };
+
+        let variable_type = VariableType::Local;
+        let scope_index = slot.scope_index;
+        let should_insert_in_scope = true;
+
+        let symbol_id = self.shared.state.symbol_id_allocator.alloc_scoped();
+        self.shared.state.symbols.insert_scoped(
+            symbol_id,
+            Symbol {
+                id: symbol_id.into(),
+                kind: SymbolKind::Variable,
+                source_map_node: variable.clone(),
+                name: variable.clone(),
+            },
+        );
+
+        let variables_len = self.scope
+            .total_scopes
+            .all_variables.len();
+
+        let resolved_variable = Variable {
+            symbol_id,
+            name: variable.clone(),
+            assigned_name: variable_str.clone(),
+            variable_type,
+            resolved_type: variable_type_ref.clone(),
+            mutable_node: is_mutable,
+            scope_index,
+            variable_index: variables_len,
+            unique_id_within_function: slot.unique_id_in_function,
+            virtual_register: slot.virtual_register,
+            is_unused: !should_insert_in_scope,
+        };
+
+        let variable_ref = Rc::new(resolved_variable);
+
+        if should_insert_in_scope {
+            self
+                .scope.active_scope.block_scope_stack.get_mut(scope_index).unwrap().lookup.insert(variable_str.clone(), variable_ref.clone()).expect("should work");
+        }
+
+        &mut self
+            .scope
+            .active_scope.block_scope_stack.get_mut(scope_index).unwrap().variables
+            .insert(slot.unique_id_in_function, variable_ref.clone())
+            .expect("should have checked earlier for variable");
+
+
+        self.scope
+            .total_scopes
+            .all_variables
+            .push(variable_ref.clone());
+
+        (variable_ref, variable_str)
     }
 
     pub(crate) fn create_variable_like_resolved(

@@ -10,12 +10,12 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_isa::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
-    GRID_HEADER_WIDTH_OFFSET, MemoryOffset,
+    MemoryOffset, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET,
 };
 use swamp_vm_types::types::{
-    Destination, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type,
-    u32_type,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
+    VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
@@ -380,6 +380,22 @@ impl CodeBuilder<'_> {
                     &other_vec_reg,
                     node,
                     "extend vec",
+                );
+            }
+
+            IntrinsicFunction::VecCopy => {
+                let output_pointer = self.emit_compute_effective_address_to_register(
+                    output_destination,
+                    node,
+                    "get absolute pointer for vec slice destination",
+                );
+                let output_pointer_location = PointerLocation::new(output_pointer);
+
+                self.builder.add_vec_copy(
+                    &output_pointer_location,
+                    &self_ptr_reg,
+                    node,
+                    "copy vector",
                 );
             }
 
@@ -1116,6 +1132,7 @@ impl CodeBuilder<'_> {
             | IntrinsicFunction::VecInsert
             | IntrinsicFunction::VecFirst
             | IntrinsicFunction::VecGet
+            | IntrinsicFunction::VecCopy
             | IntrinsicFunction::VecLast => {
                 // Vec
                 // Self is assumed to be a flattened pointer:
@@ -1466,6 +1483,56 @@ impl CodeBuilder<'_> {
                         &temp_reg.register,
                         node,
                         "store bool to string result to memory",
+                    );
+                }
+            }
+
+            IntrinsicFunction::ByteVectorToString => {
+                if target_destination.is_register() {
+                    self.builder.add_bytes_to_string(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "bytes_to_string",
+                    );
+                } else {
+                    let temp_reg = self.temp_registers.allocate(
+                        VmType::new_contained_in_register(u32_type()),
+                        "temporary for string duplicate intrinsic",
+                    );
+
+                    self.builder.add_bytes_to_string(
+                        &temp_reg.register,
+                        self_reg.unwrap(),
+                        node,
+                        "bytes_to_string",
+                    );
+
+                    self.emit_store_scalar_to_memory_offset_instruction(
+                        target_destination.grab_memory_location(),
+                        &temp_reg.register,
+                        node,
+                        "store converted utf8 string to memory",
+                    );
+                }
+            }
+
+            IntrinsicFunction::ByteVectorToStringStorage => {
+                if target_destination.is_register() {
+                    self.builder.add_bytes_to_string_storage(
+                        target_destination.register().unwrap(),
+                        self_reg.unwrap(),
+                        node,
+                        "bytes_to_string_storage",
+                    );
+                } else {
+                    let target_pointer_reg = self.emit_compute_effective_address_to_register(target_destination, node, "get pointer to target string storage");
+
+                    self.builder.add_bytes_to_string_storage(
+                        &target_pointer_reg,
+                        self_reg.unwrap(),
+                        node,
+                        "bytes_to_string_storage",
                     );
                 }
             }

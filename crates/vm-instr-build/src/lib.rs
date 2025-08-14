@@ -126,6 +126,8 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
+impl<'a> InstructionBuilder<'a> {}
+
 impl InstructionBuilder<'_> {}
 
 impl<'a> InstructionBuilder<'a> {
@@ -1142,6 +1144,37 @@ impl InstructionBuilder<'_> {
         self.state.add_instruction(
             OpCode::StringDuplicate,
             &[dst_offset.addressing(), lhs_offset.addressing()],
+            node,
+            comment,
+        );
+    }
+
+    pub fn add_bytes_to_string(
+        &mut self,
+        dest_string_view_reg: &TypedRegister,
+        source_byte_vec_ref: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::BytesToString,
+            &[dest_string_view_reg.addressing(), source_byte_vec_ref.addressing()],
+            node,
+            comment,
+        );
+    }
+
+
+    pub fn add_bytes_to_string_storage(
+        &mut self,
+        dest_string_storage_reg: &TypedRegister,
+        source_byte_vec_ref: &TypedRegister,
+        node: &Node,
+        comment: &str,
+    ) {
+        self.state.add_instruction(
+            OpCode::BytesToStringStorage,
+            &[dest_string_storage_reg.addressing(), source_byte_vec_ref.addressing()],
             node,
             comment,
         );

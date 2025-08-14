@@ -256,7 +256,7 @@ impl Analyzer<'_> {
                     swamp_ast::DestructuringPattern::None { variable } => {
                         // Single payload variable - capture the entire payload
                         if !scope_was_pushed {
-                            self.push_block_scope("enum payload");
+                            self.push_block_scope(&format!("enum destructure to single variable {variable:?}"));
                             scope_was_pushed = true;
                         }
 

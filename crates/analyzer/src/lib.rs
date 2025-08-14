@@ -23,7 +23,7 @@ use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
 use crate::types::TypeAnalyzeContext;
-use crate::variable::MAX_VIRTUAL_REGISTER;
+use crate::variable::{allocate_next_register, VariableSlot, MAX_VIRTUAL_REGISTER};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
@@ -78,6 +78,11 @@ use tracing::{error, info};
                    uncertain = false; // the chain is safe, because this will always solve None
                }
 */
+
+pub enum VariableResolution {
+    ExistingVariable(VariableRef),
+    ReservedSlot(VariableSlot, swamp_ast::Variable, Option<TypeRef>),
+}
 
 #[derive(Debug)]
 pub enum ParseByteError {
@@ -635,6 +640,63 @@ impl<'a> Analyzer<'a> {
                 );
             }
 
+            if matches!(
+            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+            (TypeKind::StringView(_, _), TypeKind::VecStorage(..)) |
+                (TypeKind::StringView(_, _), TypeKind::DynamicLengthVecView(..))
+         ) {
+                //Special case where you want to convert a byte vector to a string
+                // this needs to do extra UTF8 checking as well as a copy
+                // so the string is not dependent on the vec view or storage (aliasing).
+                let string_type = self.shared.state.types.string();
+                return self.create_expr(
+                    ExpressionKind::IntrinsicCallEx(
+                        IntrinsicFunction::ByteVectorToString,
+                        vec![ArgumentExpression::Expression(expr)],
+                    ),
+                    string_type,
+                    &ast_expression.node,
+                );
+            }
+
+            if matches!(
+            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+            (TypeKind::StringStorage(..), TypeKind::VecStorage(..)) |
+                (TypeKind::StringStorage(..), TypeKind::DynamicLengthVecView(..))
+         ) {
+                //Special case where you want to convert a byte vector to a string
+                // this needs to do extra UTF8 checking as well as a copy
+                // so the string is not dependent on the vec view or storage (aliasing).
+                let string_type = self.shared.state.types.string();
+                return self.create_expr(
+                    ExpressionKind::IntrinsicCallEx(
+                        IntrinsicFunction::ByteVectorToStringStorage,
+                        vec![ArgumentExpression::Expression(expr)],
+                    ),
+                    string_type,
+                    &ast_expression.node,
+                );
+            }
+
+
+            if matches!(
+            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+            (TypeKind::StringStorage(..), TypeKind::StringView(..))
+         ) {
+                //Special case where you want to convert a byte vector to a string
+                // this needs to do extra UTF8 checking as well as a copy
+                // so the string is not dependent on the vec view or storage (aliasing).
+                let string_type = self.shared.state.types.string();
+                return self.create_expr(
+                    ExpressionKind::IntrinsicCallEx(
+                        IntrinsicFunction::VecCopy,
+                        vec![ArgumentExpression::Expression(expr)],
+                    ),
+                    string_type,
+                    &ast_expression.node,
+                );
+            }
+
             //|  (TypeKind::StringStorage(..), TypeKind::StringView(_,_))
 
 
@@ -697,6 +759,10 @@ impl<'a> Analyzer<'a> {
                 self.analyze_variable_assignment(variable, source_expression)
             }
 
+            swamp_ast::ExpressionKind::Assignment(location, source) => {
+                self.analyze_assignment(location, source)
+            }
+
             swamp_ast::ExpressionKind::DestructuringAssignment(variables, expression) => {
                 self.analyze_destructuring(&ast_expression.node, variables, expression)
             }
@@ -724,10 +790,6 @@ impl<'a> Analyzer<'a> {
 
             swamp_ast::ExpressionKind::ConstantReference(constant_identifier) => {
                 self.analyze_constant_access(constant_identifier)
-            }
-
-            swamp_ast::ExpressionKind::Assignment(location, source) => {
-                self.analyze_assignment(location, source)
             }
 
             swamp_ast::ExpressionKind::CompoundAssignment(target, op, source) => {
@@ -2014,6 +2076,7 @@ impl<'a> Analyzer<'a> {
 
     fn push_block_scope(&mut self, debug_str: &str) {
         let register_watermark = self.scope.total_scopes.current_register;
+        info!("-> SCOPE {debug_str} hwm:{register_watermark}");
 
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
@@ -2035,11 +2098,13 @@ impl<'a> Analyzer<'a> {
     }
 
     fn pop_block_scope(&mut self, debug_str: &str) {
+        info!("<- SCOPE {debug_str}");
         self.pop_any_block_scope();
     }
 
     fn push_closed_block_scope(&mut self) {
         let register_watermark = self.scope.total_scopes.current_register;
+        info!("-> Push CLOSED SCOPE  hwm:{register_watermark}");
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Closed,
             lookup: Default::default(),
@@ -2079,6 +2144,8 @@ impl<'a> Analyzer<'a> {
         } else {
             // Regular scopes restore their watermark to free up registers
             // This enables register reuse when variables go out of scope
+
+            info!( scope.register_watermark, "<- pop any block scope: restoring hwm");
             self.scope.total_scopes.current_register = scope.register_watermark;
         }
     }
@@ -2091,6 +2158,9 @@ impl<'a> Analyzer<'a> {
     ) -> (Match, TypeRef) {
         let mut known_type = default_context.expected_type.cloned();
         let own_context = default_context.clone();
+
+        self.push_block_scope("match block");
+        info!("scrutinee_context");
         // Analyze the scrutinee with no specific expected type
         let scrutinee_context = TypeContext::new_anything_argument(true); // we just using the pointer, so pretend that it is a target
         let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context);
@@ -2122,6 +2192,8 @@ impl<'a> Analyzer<'a> {
             }
             resolved_arms.push(resolved_arm);
         }
+
+        self.pop_block_scope("match block");
 
         if let Some(encountered_type) = known_type {
             (
@@ -2156,7 +2228,7 @@ impl<'a> Analyzer<'a> {
 
         let resolved_expression = self.analyze_expression(&arm.expression, type_context);
         if scope_was_pushed {
-            self.pop_block_scope("analyze_arm");
+            self.pop_block_scope(&format!("analyze_arm {:?}", arm.expression));
         }
 
         let resolved_type = resolved_expression.ty.clone();
@@ -2769,15 +2841,19 @@ impl<'a> Analyzer<'a> {
             return self.create_err(ErrorKind::OverwriteVariableNotAllowedHere, &variable.name);
         }
 
+        let node = self.to_node(&variable.name);
+
+        let Some(variable_slot) = self.reserve_slot(&node) else {
+            return self.create_err(ErrorKind::OutOfVirtualRegisters, &variable.name);
+        };
+
         let maybe_annotated_type = annotation_type.as_ref().map(|found_ast_type| {
             self.analyze_type(&found_ast_type, &TypeAnalyzeContext::default())
         });
 
         self.common_variable_util(
-            variable,
-            maybe_found_variable,
-            VariableType::Local,
-            maybe_annotated_type,
+            VariableResolution::ReservedSlot(variable_slot, variable.clone(), maybe_annotated_type),
+            &variable.name,
             source_expression,
         )
     }
@@ -2791,92 +2867,103 @@ impl<'a> Analyzer<'a> {
     ) -> Expression {
         let maybe_found_variable = self.try_find_variable(&variable.name);
 
-        let maybe_annotated_type = maybe_found_variable
-            .as_ref()
-            .map(|var| var.resolved_type.clone());
+        let node = self.to_node(&variable.name);
+        let resolution = if let Some(found_var) = maybe_found_variable {
+            VariableResolution::ExistingVariable(found_var)
+        } else {
+            let Some(variable_slot) = self.reserve_slot(&node) else {
+                return self.create_err(ErrorKind::OutOfVirtualRegisters, &variable.name);
+            };
 
-        let variable_type = match maybe_found_variable {
-            None => VariableType::Local,
-            Some(ref var) => var.variable_type.clone(),
+            VariableResolution::ReservedSlot(variable_slot, variable.clone(), None)
         };
+
         self.common_variable_util(
-            variable,
-            maybe_found_variable,
-            variable_type,
-            maybe_annotated_type,
+            resolution,
+            &variable.name,
             source_expression,
         )
     }
 
+
     pub fn common_variable_util(
         &mut self,
-        variable: &swamp_ast::Variable,
-        maybe_found_variable: Option<VariableRef>,
-        variable_type: VariableType,
-        maybe_annotation: Option<TypeRef>,
+        variable_resolution: VariableResolution,
+        ast_node: &swamp_ast::Node,
         source_expression: &swamp_ast::Expression,
     ) -> Expression {
-        let ast_name_node = variable.name.clone();
-        let name_node = self.to_node(&ast_name_node).clone();
-        let maybe_annotated_type = match maybe_found_variable {
-            None => maybe_annotation,
-            Some(ref found_variable) => Some(found_variable.resolved_type.clone()),
+        let node = self.to_node(ast_node);
+
+        let maybe_annotated_type = match &variable_resolution {
+            VariableResolution::ExistingVariable(existing_var) => { Some(existing_var.resolved_type.clone()) }
+            VariableResolution::ReservedSlot(_, _, maybe_annotated) => { maybe_annotated.clone() }
         };
 
         let (final_variable_type, final_source_expression) = self.resolve_variable_expression(
             maybe_annotated_type.clone(),
             source_expression,
-            &ast_name_node,
         );
+
+        let variable_type = match &variable_resolution {
+            VariableResolution::ExistingVariable(existing) => {
+                existing.variable_type.clone()
+            }
+            VariableResolution::ReservedSlot(_, _, _) => {
+                VariableType::Local
+            }
+        };
 
         // verify the type now
         match variable_type {
             VariableType::Local => {
                 if !final_variable_type.can_be_stored_in_variable() {
-                    return self.create_err(
+                    return self.create_err_resolved(
                         ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
-                        &ast_name_node,
+                        &node,
                     );
                 }
             }
 
             VariableType::Parameter => {
                 if !final_variable_type.allowed_as_return_type() {
-                    return self.create_err(
+                    return self.create_err_resolved(
                         ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
-                        &ast_name_node,
+                        &node,
                     );
                 }
             }
         }
 
-        let kind = if let Some(found_var) = &maybe_found_variable {
-            self.shared
-                .state
-                .refs
-                .add(found_var.symbol_id.into(), name_node.clone());
-            self.shared
-                .definition_table
-                .refs
-                .add(found_var.symbol_id.into(), name_node);
+        let kind = match variable_resolution {
+            VariableResolution::ExistingVariable(found_variable) => {
+                self.shared
+                    .state
+                    .refs
+                    .add(found_variable.symbol_id.into(), node.clone());
+                self.shared
+                    .definition_table
+                    .refs
+                    .add(found_variable.symbol_id.into(), node.clone());
 
-            ExpressionKind::VariableReassignment(
-                found_var.clone(),
-                Box::from(final_source_expression),
-            )
-        } else {
-            let created_variable = self.create_local_variable(
-                &variable.name,
-                Option::from(&variable.is_mutable),
-                &final_variable_type,
-                true,
-            );
+                ExpressionKind::VariableReassignment(
+                    found_variable.clone(),
+                    Box::from(final_source_expression),
+                )
+            }
+            VariableResolution::ReservedSlot(reserved_slot, ast_variable, maybe_annotated) => {
+                let final_type = if let Some(annotated_type) = maybe_annotated {
+                    annotated_type
+                } else {
+                    final_source_expression.ty.clone()
+                };
 
-            ExpressionKind::VariableDefinition(created_variable, Box::from(final_source_expression))
+                let (found_variable, _some_string) = self.create_local_variable_with_reserved_slot(reserved_slot, ast_variable, &final_type);
+                ExpressionKind::VariableDefinition(found_variable, Box::from(final_source_expression))
+            }
         };
 
         let unit_type = self.shared.state.types.unit();
-        self.create_expr(kind, unit_type, &variable.name)
+        self.create_expr(kind, unit_type, &ast_node)
     }
 
     // Tries to infer the source expression needed
@@ -2885,7 +2972,6 @@ impl<'a> Analyzer<'a> {
         &mut self,
         maybe_annotated_type: Option<TypeRef>,
         source_expression: &swamp_ast::Expression,
-        node: &swamp_ast::Node,
     ) -> (TypeRef, Expression) {
         let source_expr = if let Some(target_type) = &maybe_annotated_type {
             self.analyze_expression_for_assignment_with_target_type(target_type, source_expression)
@@ -3550,6 +3636,7 @@ impl<'a> Analyzer<'a> {
         ast_target_location_expression: &swamp_ast::Expression,
         ast_source_expression: &swamp_ast::Expression,
     ) -> (TargetAssignmentLocation, Expression) {
+        self.push_block_scope("fake outer scope to keep lvalue alive");
         let any_argument_context = TypeContext::new_anything_argument(true);
         let resolved_location = self.analyze_to_location(
             ast_target_location_expression,
@@ -3557,12 +3644,15 @@ impl<'a> Analyzer<'a> {
             LocationSide::Lhs,
         );
 
+        self.push_block_scope("fake scope to keep lvalue alive");
         let target_type = resolved_location.ty.clone();
         let mut_type = target_type; // Mutable references now use the same type
         let mut_location = TargetAssignmentLocation(resolved_location);
 
         let final_expr = self
             .analyze_expression_for_assignment_with_target_type(&mut_type, ast_source_expression);
+        self.pop_block_scope("fake scope for lvalue alive");
+        self.pop_block_scope("fake outer scope for lvalue alive");
 
         (mut_location, final_expr)
     }

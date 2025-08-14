@@ -4,10 +4,10 @@
  */
 extern crate core;
 
-use crate::VmState::Normal;
 use crate::host::{HostArgs, HostFunctionCallback};
 use crate::memory::ExecutionMode::NormalExecution;
 use crate::memory::{Memory, MemoryDebug};
+use crate::VmState::Normal;
 use fixed32::Fp;
 use std::error::Error;
 use std::fmt::{Display, Formatter};
@@ -466,8 +466,14 @@ impl Vm {
         // String
         vm.handlers[OpCode::StringAppend as usize] =
             HandlerType::Args3(Self::execute_string_append);
+
         vm.handlers[OpCode::StringDuplicate as usize] =
             HandlerType::Args2(Self::execute_string_duplicate);
+        vm.handlers[OpCode::BytesToString as usize] =
+            HandlerType::Args2(Self::execute_string_from_bytes);
+        vm.handlers[OpCode::BytesToStringStorage as usize] =
+            HandlerType::Args2(Self::execute_string_storage_from_bytes);
+
         vm.handlers[OpCode::StringRepeat as usize] =
             HandlerType::Args3(Self::execute_string_repeat);
 

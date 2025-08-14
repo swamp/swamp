@@ -91,6 +91,7 @@ impl Analyzer<'_> {
                 self.shared.state.types.string(),
             )),
 
+
             // String concatenation - allow any type on the right
             (
                 &BinaryOperatorKind::Add,
@@ -125,6 +126,21 @@ impl Analyzer<'_> {
                 },
                 self.shared.state.types.string(),
             )),
+
+            (
+                &BinaryOperatorKind::Equal,
+                TypeKind::StringStorage(..) | TypeKind::StringView(..),
+                TypeKind::Int,
+            ) => Some((
+                BinaryOperator {
+                    left: Box::new(left),
+                    right: Box::new(right),
+                    kind,
+                    node,
+                },
+                self.shared.state.types.string(),
+            )),
+
 
             // Comparison operators
             (

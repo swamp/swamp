@@ -116,6 +116,9 @@ pub enum IntrinsicFunction {
     EnumFromDiscriminant,
     PtrFromU32,
     StringDuplicate,
+    ByteVectorToString,
+    ByteVectorToStringStorage,
+    VecCopy,
 }
 
 pub type IntrinsicFunctionDefinitionRef = Rc<IntrinsicFunctionDefinition>;
@@ -176,6 +179,8 @@ impl fmt::Display for IntrinsicFunction {
             Self::StringToInt => "string_to_int",
             Self::StringToFloat => "string_to_float",
             Self::StringDuplicate => "string_dup",
+            Self::ByteVectorToString => "bytes_to_string",
+            Self::ByteVectorToStringStorage => "bytes_to_string_storage",
 
             // Enum
             Self::EnumDiscriminant => "enum_discriminant",
@@ -208,6 +213,7 @@ impl fmt::Display for IntrinsicFunction {
             Self::VecInsert => "vec_insert",
             Self::VecFirst => "vec_first",
             Self::VecLast => "vec_last",
+            Self::VecCopy => "vec_copy",
 
             // Map
             Self::MapHas => "map_has",
