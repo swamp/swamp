@@ -392,7 +392,7 @@ impl CodeBuilder<'_> {
 
                 self.builder.add_vec_copy(
                     &output_pointer_location,
-                    &self_ptr_reg,
+                    self_ptr_reg,
                     node,
                     "copy vector",
                 );

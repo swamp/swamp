@@ -24,7 +24,7 @@ pub struct VariableSlot {
 
 /// Common helper function for allocating the next available register from `ScopeInfo`
 /// This function uses high watermark approach - simply increment counter, restore on scope pop
-pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
+pub(crate) const fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
     if scope.total_scopes.current_register >= MAX_VIRTUAL_REGISTER {
         None
     } else {
@@ -207,8 +207,8 @@ impl Analyzer<'_> {
 
         Some(VariableSlot {
             scope_index,
-            virtual_register,
             unique_id_in_function,
+            virtual_register,
         })
     }
 
@@ -220,11 +220,7 @@ impl Analyzer<'_> {
     ) -> (VariableRef, String) {
         let variable = self.to_node(&ast_var.name);
         let variable_str = self.get_text(&ast_var.name).to_string();
-        let is_mutable = if let Some(ast_node) = ast_var.is_mutable {
-            Some(self.to_node(&ast_node))
-        } else {
-            None
-        };
+        let is_mutable = ast_var.is_mutable.map(|ast_node| self.to_node(&ast_node));
 
         let variable_type = VariableType::Local;
         let scope_index = slot.scope_index;
@@ -245,7 +241,7 @@ impl Analyzer<'_> {
 
         let resolved_variable = Variable {
             symbol_id,
-            name: variable.clone(),
+            name: variable,
             assigned_name: variable_str.clone(),
             variable_type,
             resolved_type: variable_type_ref.clone(),
@@ -270,8 +266,7 @@ impl Analyzer<'_> {
                 .expect("should work");
         }
 
-        &mut self
-            .scope
+        self.scope
             .active_scope
             .block_scope_stack
             .get_mut(scope_index)

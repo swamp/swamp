@@ -20,7 +20,7 @@ use swamp_refs::ReferenceTracker;
 use swamp_symbol::{ScopedSymbolId, SymbolIdAllocator, Symbols, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeRef};
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct TypeWithMut {
@@ -251,7 +251,7 @@ impl VariableScopes {
         }
     }
 
-    pub fn finalize(&mut self) {
+    pub const fn finalize(&mut self) {
         self.highest_virtual_register = self.current_register;
         //        info!(?self.highest_virtual_register, "finalize");
     }

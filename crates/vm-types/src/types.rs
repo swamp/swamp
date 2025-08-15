@@ -315,22 +315,24 @@ impl BasicTypeKind {
                 | Self::S32
                 | Self::U32
                 | Self::Fixed32
-                | BasicTypeKind::StringView { .. }
+                | Self::StringView { .. }
         )
     }
 
+    #[must_use]
     pub const fn is_reg_copy(&self) -> bool {
         self.is_scalar()
     }
 
+    #[must_use]
     pub const fn is_view(&self) -> bool {
         match self {
-            BasicTypeKind::GridView(_)
-            | BasicTypeKind::DynamicLengthMapView(_, _)
-            | BasicTypeKind::SparseView(_)
-            | BasicTypeKind::DynamicLengthVecView(_)
-            | BasicTypeKind::SliceView(_)
-            | BasicTypeKind::StringView { .. } => true,
+            Self::GridView(_)
+            | Self::DynamicLengthMapView(_, _)
+            | Self::SparseView(_)
+            | Self::DynamicLengthVecView(_)
+            | Self::SliceView(_)
+            | Self::StringView { .. } => true,
             _ => false,
         }
     }
@@ -1133,6 +1135,7 @@ impl VmType {
         self.basic_type.is_scalar()
     }
 
+    #[must_use]
     pub fn is_reg_copy(&self) -> bool {
         self.basic_type.is_reg_copy()
     }
@@ -1427,6 +1430,7 @@ impl BasicType {
         self.kind.is_reg_copy()
     }
 
+    #[must_use]
     pub const fn is_scratch_arena_allocated(&self) -> bool {
         matches!(self.kind, BasicTypeKind::StringView { .. })
     }

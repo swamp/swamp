@@ -53,7 +53,14 @@ impl CodeBuilder<'_> {
         comment: &str,
     ) {
         let source_type = source_memory_location.vm_type();
-        if !source_type.is_reg_copy() {
+        if source_type.is_reg_copy() {
+            self.emit_load_scalar_from_memory_offset_instruction(
+                target_reg,
+                source_memory_location,
+                node,
+                &format!("emit primitive value. ptr to primitive reg {comment}"),
+            );
+        } else {
             // We want the pointer since it is an aggregate. So either just copy the register
             // or flatten the pointer
             let source_loc = Place::Memory(source_memory_location.clone());
@@ -63,13 +70,6 @@ impl CodeBuilder<'_> {
                 &source_loc,
                 node,
                 "copy aggregate pointer to target register",
-            );
-        } else {
-            self.emit_load_scalar_from_memory_offset_instruction(
-                target_reg,
-                source_memory_location,
-                node,
-                &format!("emit primitive value. ptr to primitive reg {comment}"),
             );
         }
     }

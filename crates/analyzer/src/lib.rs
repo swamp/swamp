@@ -23,11 +23,10 @@ use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
 use crate::types::TypeAnalyzeContext;
-use crate::variable::{MAX_VIRTUAL_REGISTER, VariableSlot, allocate_next_register};
+use crate::variable::{MAX_VIRTUAL_REGISTER, VariableSlot};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
-use std::env::var;
 use std::mem::take;
 use std::num::{ParseFloatError, ParseIntError};
 use std::rc::Rc;
@@ -47,7 +46,7 @@ use swamp_semantic::{StartOfChain, StartOfChainKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::*;
 use swamp_types::{Type, TypeKind};
-use tracing::{error, info};
+use tracing::error;
 /*
            swamp_ast::Postfix::NoneCoalescingOperator(default_expr) => {
                    previous_was_optional_chaining = false;
@@ -641,11 +640,10 @@ impl<'a> Analyzer<'a> {
 
             if matches!(
                 (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-                (TypeKind::StringView(_, _), TypeKind::VecStorage(..))
-                    | (
-                        TypeKind::StringView(_, _),
-                        TypeKind::DynamicLengthVecView(..)
-                    )
+                (
+                    TypeKind::StringView(_, _),
+                    TypeKind::VecStorage(..) | TypeKind::DynamicLengthVecView(..)
+                )
             ) {
                 //Special case where you want to convert a byte vector to a string
                 // this needs to do extra UTF8 checking as well as a copy
@@ -663,11 +661,10 @@ impl<'a> Analyzer<'a> {
 
             if matches!(
                 (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-                (TypeKind::StringStorage(..), TypeKind::VecStorage(..))
-                    | (
-                        TypeKind::StringStorage(..),
-                        TypeKind::DynamicLengthVecView(..)
-                    )
+                (
+                    TypeKind::StringStorage(..),
+                    TypeKind::VecStorage(..) | TypeKind::DynamicLengthVecView(..)
+                )
             ) {
                 //Special case where you want to convert a byte vector to a string
                 // this needs to do extra UTF8 checking as well as a copy
@@ -2852,7 +2849,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let maybe_annotated_type = annotation_type.as_ref().map(|found_ast_type| {
-            self.analyze_type(&found_ast_type, &TypeAnalyzeContext::default())
+            self.analyze_type(found_ast_type, &TypeAnalyzeContext::default())
         });
 
         self.common_variable_util(
@@ -2901,7 +2898,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let (final_variable_type, final_source_expression) =
-            self.resolve_variable_expression(maybe_annotated_type.clone(), source_expression);
+            self.resolve_variable_expression(maybe_annotated_type, source_expression);
 
         let variable_type = match &variable_resolution {
             VariableResolution::ExistingVariable(existing) => existing.variable_type.clone(),
@@ -2946,7 +2943,7 @@ impl<'a> Analyzer<'a> {
                     .add(found_variable.symbol_id.into(), node.clone());
 
                 ExpressionKind::VariableReassignment(
-                    found_variable.clone(),
+                    found_variable,
                     Box::from(final_source_expression),
                 )
             }
@@ -2970,7 +2967,7 @@ impl<'a> Analyzer<'a> {
         };
 
         let unit_type = self.shared.state.types.unit();
-        self.create_expr(kind, unit_type, &ast_node)
+        self.create_expr(kind, unit_type, ast_node)
     }
 
     // Tries to infer the source expression needed
@@ -2990,7 +2987,7 @@ impl<'a> Analyzer<'a> {
         // Check if the variable type (target type) can be stored in a variable
         // Skip this check for parameters since they already have allocated storage
         let determined_variable_type = if let Some(found_type) = &maybe_annotated_type {
-            &found_type
+            found_type
         } else {
             &source_expr.ty.clone()
         };
@@ -5023,10 +5020,7 @@ impl<'a> Analyzer<'a> {
         ast_generic_parameters: &[GenericParameter],
     ) -> Option<TypeRef> {
         let converted_type = match name {
-            "Any" => {
-                let new_type = self.shared.state.types.any();
-                new_type
-            }
+            "Any" => self.shared.state.types.any(),
             "Ptr" => {
                 if self.shared.allow_unsafe {
                     let inner_type = if ast_generic_parameters.len() == 1 {

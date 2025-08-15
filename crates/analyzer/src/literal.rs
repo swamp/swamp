@@ -10,7 +10,7 @@ use swamp_semantic::prelude::Error;
 use swamp_semantic::{EnumLiteralExpressions, ExpressionKind};
 use swamp_semantic::{Expression, Fp};
 use swamp_types::prelude::*;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 impl Analyzer<'_> {
     pub fn analyze_enum_variant_struct_literal(

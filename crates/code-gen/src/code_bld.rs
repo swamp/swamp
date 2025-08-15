@@ -23,7 +23,6 @@ use swamp_vm_isa::{
     ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, FrameMemorySize,
     MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
-use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
     BasicTypeRef, Place, TypedRegister, VmType, b8_type, u8_type, u32_type,
 };

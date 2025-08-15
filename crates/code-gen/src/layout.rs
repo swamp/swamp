@@ -42,7 +42,10 @@ pub fn layout_variables(
     for var_ref in &scopes.all_variables {
         let basic_type = layout_cache.layout(&var_ref.resolved_type);
 
-        let vm_type = if !basic_type.is_reg_copy() {
+        let vm_type = if basic_type.is_reg_copy() {
+            // If it is a scalar, then it is in a register no matter if it is a parameter or local
+            VmType::new_contained_in_register(basic_type)
+        } else {
             // TODO: Should have a check if the variable needs the storage (if it is in an assignment in a copy)
             swamp_vm_layout::check_type_size(
                 &basic_type,
@@ -81,9 +84,6 @@ pub fn layout_variables(
                 // even if it is an aggregate, parameters do not need any frame memory, they are allocated elsewhere
                 VmType::new_contained_in_register(basic_type)
             }
-        } else {
-            // If it is a scalar, then it is in a register no matter if it is a parameter or local
-            VmType::new_contained_in_register(basic_type)
         };
 
         let typed_register = TypedRegister {

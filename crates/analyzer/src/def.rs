@@ -232,7 +232,7 @@ impl Analyzer<'_> {
                     };
 
                     if !final_type.is_storage() {
-                        self.add_err(ErrorKind::NeedStorage, &variant_name_node);
+                        self.add_err(ErrorKind::NeedStorage, variant_name_node);
                     }
 
                     final_type
@@ -253,7 +253,7 @@ impl Analyzer<'_> {
                     };
 
                     if !tuple_type.is_storage() {
-                        self.add_err(ErrorKind::NeedStorage, &variant_name_node);
+                        self.add_err(ErrorKind::NeedStorage, variant_name_node);
                     }
 
                     tuple_type

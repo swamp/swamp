@@ -126,7 +126,7 @@ pub struct InstructionBuilder<'a> {
     pub state: &'a mut InstructionBuilderState,
 }
 
-impl<'a> InstructionBuilder<'a> {}
+impl InstructionBuilder<'_> {}
 
 impl InstructionBuilder<'_> {}
 
