@@ -2,13 +2,13 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Expression};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Place, TypedRegister, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Place, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_binary_operator(
@@ -311,7 +311,7 @@ impl CodeBuilder<'_> {
                 payload_offset,
                 VmType::new_unknown_placement(some_payload_basic_type.ty.clone()),
             );
-            self.emit_copy_value_between_destinations(dest, &payload_source_location, node, "?? right hand side is NOT optional. must copy from payload area to output destination. unwrap was needed because of different types");
+            self.emit_copy_value_between_places(dest, &payload_source_location, node, "?? right hand side is NOT optional. must copy from payload area to output destination. unwrap was needed because of different types");
         }
 
         let jump_to_after_whole_thing = self

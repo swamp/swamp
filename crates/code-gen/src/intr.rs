@@ -10,11 +10,11 @@ use source_map_node::Node;
 use swamp_semantic::intr::IntrinsicFunction;
 use swamp_semantic::{ArgumentExpression, Expression, ExpressionKind, VariableRef};
 use swamp_vm_isa::{
-    COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET, GRID_HEADER_HEIGHT_OFFSET,
-    GRID_HEADER_WIDTH_OFFSET, MemoryOffset,
+    MemoryOffset, COLLECTION_CAPACITY_OFFSET, COLLECTION_ELEMENT_COUNT_OFFSET,
+    GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET,
 };
 use swamp_vm_types::types::{
-    Place, TypedRegister, VmType, float_type, int_type, pointer_type, u8_type, u16_type, u32_type,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Place, TypedRegister, VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
@@ -270,7 +270,7 @@ impl CodeBuilder<'_> {
                 let value_source = Place::Register(temp.register);
 
                 // Use emit_copy_value_between_destinations to handle both register and memory destinations
-                self.emit_copy_value_between_destinations(
+                self.emit_copy_value_between_places(
                     target_destination,
                     &value_source,
                     node,
@@ -305,7 +305,7 @@ impl CodeBuilder<'_> {
                 let value_source = Place::Register(temp.register);
 
                 // Use emit_copy_value_between_destinations to handle both register and memory destinations
-                self.emit_copy_value_between_destinations(
+                self.emit_copy_value_between_places(
                     target_destination,
                     &value_source,
                     node,
@@ -495,7 +495,7 @@ impl CodeBuilder<'_> {
 
                     // Copy from temporary register to destination
                     let source = Place::Register(temp_reg.register);
-                    self.emit_copy_value_between_destinations(
+                    self.emit_copy_value_between_places(
                         output_destination,
                         &source,
                         node,

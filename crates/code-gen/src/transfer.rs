@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
 use swamp_vm_isa::COLLECTION_CAPACITY_OFFSET;
+use swamp_vm_types::types::{u16_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Place, TypedRegister, VmType, u16_type};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -378,20 +378,20 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn emit_copy_value_between_destinations(
+    pub fn emit_copy_value_between_places(
         &mut self,
-        output_destination: &Place,
+        output_place: &Place,
         value_source: &Place,
         node: &Node,
         comment: &str,
     ) {
-        match output_destination {
+        match output_place {
             Place::Register(reg) => {
                 self.emit_transfer_value_to_register(reg, value_source, node, comment);
             }
             Place::Memory(_) => {
-                self.emit_store_value_to_memory_destination(
-                    output_destination,
+                self.emit_store_value_to_memory_place(
+                    output_place,
                     value_source,
                     node,
                     comment,
@@ -412,7 +412,7 @@ impl CodeBuilder<'_> {
     ) {
         if let Some(_mem_loc) = destination.memory_location() {
             let source_loc = Place::Memory(source_memory_location.clone());
-            self.emit_store_value_to_memory_destination(destination, &source_loc, node, comment);
+            self.emit_store_value_to_memory_place(destination, &source_loc, node, comment);
         } else if let Some(output_target_reg) = destination.register() {
             self.emit_load_value_from_memory_source(
                 output_target_reg,
@@ -426,21 +426,21 @@ impl CodeBuilder<'_> {
     }
 
     /// Stores a **value** from a `value_source` (either a register or memory) to a
-    /// target memory location specified by `output_destination`.
+    /// target memory location specified by `output_place`.
     ///
     /// This function handles storing both **scalar** and **aggregate** types. For scalars,
     /// it delegates to `emit_store_scalar_to_memory_offset_instruction`. For larger
     /// aggregate types (like structs, tagged unions or arrays), it performs a block copy.
     /// If the `value_source` is also memory, it first loads the value into a temporary
     /// register using `emit_load_value_from_memory_source` before storing.
-    pub(crate) fn emit_store_value_to_memory_destination(
+    pub(crate) fn emit_store_value_to_memory_place(
         &mut self,
-        output_destination: &Place,
+        output_place: &Place,
         value_source: &Place,
         node: &Node,
         comment: &str,
     ) {
-        let output_mem_loc = output_destination.grab_memory_location(); // Assuming this is always a MemoryLocation
+        let output_mem_loc = output_place.grab_memory_location(); // Assuming this is always a MemoryLocation
 
         match value_source {
             Place::Register(value_reg) => {
@@ -449,7 +449,7 @@ impl CodeBuilder<'_> {
                         output_mem_loc,
                         value_reg,
                         node,
-                        &format!("store {comment} to memory pointed by register {output_destination} <- {value_reg}"),
+                        &format!("store {comment} to memory pointed by register {output_place} <- {value_reg}"),
                     );
                 } else {
                     let source_memory_location =
@@ -457,7 +457,7 @@ impl CodeBuilder<'_> {
                             value_reg.clone(),
                         );
                     self.emit_copy_aggregate_value_helper(
-                        output_destination.grab_memory_location(),
+                        output_place.grab_memory_location(),
                         &source_memory_location,
                         node,
                         "copy aggregate",
@@ -485,7 +485,7 @@ impl CodeBuilder<'_> {
                     );
                 } else {
                     self.emit_copy_aggregate_value_helper(
-                        output_destination.grab_memory_location(),
+                        output_place.grab_memory_location(),
                         source_mem_loc,
                         node,
                         "copy aggregate",

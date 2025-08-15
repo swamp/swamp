@@ -8,8 +8,8 @@ use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{u8_type, Place, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Place, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     /// Handles the final load/conversion from `current_location` to `output_destination` if needed.
@@ -40,7 +40,7 @@ impl CodeBuilder<'_> {
             return;
         }
 
-        self.emit_copy_value_between_destinations(
+        self.emit_copy_value_between_places(
             output_destination,
             current_location,
             node,
@@ -642,7 +642,7 @@ impl CodeBuilder<'_> {
             if last_ty.is_option() {
                 // The payload is already an option tagged union.
                 // Just copy the whole tag+payload over.
-                self.emit_copy_value_between_destinations(
+                self.emit_copy_value_between_places(
                     &tag_output_destination.clone().unwrap(),
                     &current_location, // tag+payload
                     node,
@@ -654,7 +654,7 @@ impl CodeBuilder<'_> {
                 self.emit_some_to_destination(&tag_output_destination.clone().unwrap(), node);
 
                 // Emit current location to the payload
-                self.emit_copy_value_between_destinations(
+                self.emit_copy_value_between_places(
                     &payload_output_destination.unwrap(),
                     &current_location,
                     &start_expression.node,
