@@ -12,6 +12,36 @@ struct StringInStruct {
     str: String<99>,
 }
 
+#[test]
+fn optional_string() {
+    a: String? = "hello"
+}
+
+struct CardLib {
+	description: String<42>?,
+}
+
+const CONSTANT_CARDS = CardLib {
+	description: "hello",
+}
+
+
+#[test]
+fn optional_in_struct() {
+	cards = CardLib {
+		description: "hello"
+	}
+}
+
+
+#[test]
+fn optional_const_in_struct() {
+	assert(CONSTANT_CARDS.description, "card must be initialized")
+	print('cards: {CONSTANT_CARDS.description}')
+	
+}
+
+
 
 #[test]
 fn utf8_literal_view() {
