@@ -691,50 +691,51 @@ impl HeapPlacedType {
     }
 }
 
+/// Where a value is located
 #[derive(Clone, Debug)]
-pub enum Destination {
-    Unit, // no output
+pub enum Place {
+    Discard, // no output
     Register(TypedRegister),
     Memory(MemoryLocation),
 }
 
-impl Destination {
+impl Place {
     #[must_use]
     pub const fn vm_type(&self) -> Option<&VmType> {
         match self {
-            Self::Unit => None,
+            Self::Discard => None,
             Self::Register(reg) => Some(&reg.ty),
             Self::Memory(mem) => Some(&mem.ty),
         }
     }
 }
 
-impl Display for Destination {
+impl Display for Place {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unit => write!(f, "unit ()"),
+            Self::Discard => write!(f, "unit ()"),
             Self::Register(reg) => write!(f, "reg: {reg}"),
             Self::Memory(memory_location) => write!(f, "memory_location {memory_location:?}"),
         }
     }
 }
 
-impl Destination {
+impl Place {
     #[must_use]
     pub const fn memory_location(&self) -> Option<&MemoryLocation> {
         match self {
-            Self::Unit => None,
+            Self::Discard => None,
             Self::Register(_) => None,
             Self::Memory(memory_location) => Some(memory_location),
         }
     }
 }
 
-impl Destination {
+impl Place {
     #[must_use]
     pub fn add_offset(&self, offset: MemoryOffset, vm_type: VmType) -> Self {
         match self {
-            Self::Unit => {
+            Self::Discard => {
                 panic!("add_offset")
             }
             Self::Register(reg) => {
@@ -760,7 +761,7 @@ impl Destination {
     }
     #[must_use]
     pub const fn new_unit() -> Self {
-        Self::Unit
+        Self::Discard
     }
     #[must_use]
     pub const fn new_reg(register: TypedRegister) -> Self {
@@ -773,7 +774,7 @@ impl Destination {
 
     #[must_use]
     pub const fn is_unit(&self) -> bool {
-        matches!(self, Self::Unit)
+        matches!(self, Self::Discard)
     }
     #[must_use]
     pub const fn is_memory_location(&self) -> bool {
@@ -787,7 +788,7 @@ impl Destination {
     #[must_use]
     pub fn ty(&self) -> &BasicTypeRef {
         match self {
-            Self::Unit => panic!("no type"),
+            Self::Discard => panic!("no type"),
             Self::Register(reg) => &reg.ty.basic_type,
             Self::Memory(location) => &location.ty.basic_type,
         }
@@ -806,7 +807,7 @@ impl Destination {
         match self {
             Self::Register(reg) => Some(reg),
             Self::Memory(memory_location) => Some(memory_location.reg()),
-            Self::Unit => None,
+            Self::Discard => None,
         }
     }
 
@@ -817,7 +818,7 @@ impl Destination {
             Self::Memory(_) => {
                 panic!("assumed it would be a register")
             }
-            Self::Unit => panic!("assumed it would be a register, but was unit"),
+            Self::Discard => panic!("assumed it would be a register, but was unit"),
         }
     }
 
@@ -826,7 +827,7 @@ impl Destination {
         match self {
             Self::Register(_reg) => panic!("assumed it was a memory location"),
             Self::Memory(location) => location,
-            Self::Unit => {
+            Self::Discard => {
                 panic!("assumed it would be a memory location, but was unit")
             }
         }
@@ -843,7 +844,7 @@ impl Destination {
                 ty: reg.ty.clone(),
             },
             Self::Memory(location) => location.clone(),
-            Self::Unit => {
+            Self::Discard => {
                 panic!("assumed it would be a memory location, but was unit")
             }
         }

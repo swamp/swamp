@@ -20,7 +20,7 @@ use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
 use swamp_vm_types::types::{
-    Destination, FunctionInfo, FunctionInfoKind, TypedRegister, VariableRegister, VmType,
+    FunctionInfo, FunctionInfoKind, Place, TypedRegister, VariableRegister, VmType,
     VmTypeOrigin,
 };
 use swamp_vm_types::{InstructionPositionOffset, InstructionRange, MemoryLocation, PatchPosition};
@@ -317,7 +317,7 @@ impl TopLevelGenState {
             TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
 
         let destination = if return_register.ty.basic_type.is_reg_copy() {
-            Destination::Register(return_register)
+            Place::Register(return_register)
         } else {
             let memory_location = MemoryLocation {
                 ty: VmType::new_unknown_placement(return_register.ty().clone()),
@@ -332,7 +332,7 @@ impl TopLevelGenState {
                 );
             }
 
-            Destination::Memory(memory_location)
+            Place::Memory(memory_location)
         };
 
         function_code_builder.emit_expression(&destination, &in_data.expression, &ctx);

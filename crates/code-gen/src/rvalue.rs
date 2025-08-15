@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, ExpressionKind};
-use swamp_vm_types::types::{Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{Place, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     /// Make sure we have a pointer to something, no matter if it is a scalar or aggregate
@@ -61,9 +61,9 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         if allow_temporary
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             // Expression needs temporary storage (like initializer lists)
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
@@ -74,7 +74,7 @@ impl CodeBuilder<'_> {
             );
 
             // Initialize the temporary memory for collections (vectors, etc.)
-            if let Destination::Memory(ref memory_location) = temp_memory {
+            if let Place::Memory(ref memory_location) = temp_memory {
                 self.emit_initialize_memory_for_any_type(
                     memory_location,
                     &expr.node,

@@ -7,18 +7,18 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::TypeRef;
-use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::types::{Place, VmType};
 use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     pub(crate) fn grid_subscript_helper(
         &mut self,
-        grid_header_location: &Destination,
+        grid_header_location: &Place,
         analyzed_element_type: &TypeRef,
         x_expr: &Expression,
         y_expr: &Expression,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         let pointer_location = self.grid_subscript_helper_helper(
             grid_header_location,
             analyzed_element_type,
@@ -27,7 +27,7 @@ impl CodeBuilder<'_> {
             ctx,
         );
         // Fix: Dereference the pointer like map subscript does, instead of returning pointer to pointer
-        Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+        Place::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
             pointer_location.ptr_reg,
         ))
     }
@@ -40,24 +40,24 @@ impl CodeBuilder<'_> {
     /// emit the bounds checking.
     pub fn vec_subscript_helper(
         &mut self,
-        vec_header_location: &Destination,
+        vec_header_location: &Place,
         analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         let pointer_location = self.vec_subscript_helper_helper(
             vec_header_location,
             analyzed_element_type,
             int_expr,
             ctx,
         );
-        Destination::Memory(pointer_location.memory_location())
+        Place::Memory(pointer_location.memory_location())
     }
 
     pub fn emit_vec_subscript_range_helper(
         &mut self,
-        destination_memory_location: &Destination,
-        source_memory_location: &Destination,
+        destination_memory_location: &Place,
+        source_memory_location: &Place,
         range_expr: &Expression,
         node: &Node,
         comment: &str,
@@ -89,7 +89,7 @@ impl CodeBuilder<'_> {
 
     pub fn grid_subscript_helper_helper(
         &mut self,
-        grid_header_location: &Destination,
+        grid_header_location: &Place,
         analyzed_element_type: &TypeRef,
         x_int_expr: &Expression,
         y_int_expr: &Expression,
@@ -131,7 +131,7 @@ impl CodeBuilder<'_> {
 
     pub fn vec_subscript_helper_helper(
         &mut self,
-        vec_header_location: &Destination,
+        vec_header_location: &Place,
         analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,

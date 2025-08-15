@@ -2,16 +2,16 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::transformer::{Collection, Transformer, TransformerResult};
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
 use swamp_vm_types::types::{
-    BasicTypeKind, BasicTypeRef, Destination, TypedRegister, VmType, pointer_type, u8_type,
-    u32_type,
+    pointer_type, u32_type, u8_type, BasicTypeKind, BasicTypeRef, Place, TypedRegister,
+    VmType,
 };
 use swamp_vm_types::{MemoryLocation, PatchPosition};
 use tracing::error;
@@ -53,7 +53,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_arguments)]
     pub fn emit_iterate_over_collection_with_lambda(
         &mut self,
-        target_destination: &Destination,
+        target_destination: &Place,
         node: &Node,
         source_collection_type: Collection,
         transformer: Transformer,
@@ -243,9 +243,9 @@ impl CodeBuilder<'_> {
 
                 // TODO: let payload_memory_location = result_location.unsafe_add_offset(tagged_union.payload_offset);
                 let payload_memory_location = result_location.unsafe_add_offset(MemoryOffset(4));
-                let payload_destination = Destination::Memory(payload_memory_location);
+                let payload_destination = Place::Memory(payload_memory_location);
 
-                let source_location = Destination::Register(primary_variable.clone());
+                let source_location = Place::Register(primary_variable.clone());
 
                 self.emit_store_value_to_memory_destination(
                     &payload_destination,
@@ -660,7 +660,7 @@ impl CodeBuilder<'_> {
                 );
 
                 let vec_entry_destination =
-                    Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                    Place::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                         target_element_addr_reg.register().clone(),
                     ));
 
@@ -674,9 +674,9 @@ impl CodeBuilder<'_> {
                 }
 
                 let source_destination = if value.ty.is_scalar() {
-                    Destination::Register(value.clone())
+                    Place::Register(value.clone())
                 } else {
-                    Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                    Place::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                         value.clone(),
                     ))
                 };

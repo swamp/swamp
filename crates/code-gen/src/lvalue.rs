@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{LocationAccessKind, SingleLocationExpression};
-use swamp_vm_types::types::{Destination, VmType};
+use swamp_vm_types::types::{Place, VmType};
 
 impl CodeBuilder<'_> {
     /// Emits code to compute the memory address (lvalue) of a variable access chain.
@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
         &mut self,
         location_expression: &SingleLocationExpression,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         let start_reg = self
             .variable_registers
             .get(
@@ -78,7 +78,7 @@ impl CodeBuilder<'_> {
         };
         */
 
-        let mut current_location = Destination::Register(start_reg);
+        let mut current_location = Place::Register(start_reg);
 
         // Loop over the consecutive accesses until we find the actual frame relative address (TypedRegister)
         for access in location_expression.access_chain.iter().take(accesses_count) {

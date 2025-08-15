@@ -13,7 +13,6 @@ use swamp_semantic::{
 };
 use swamp_symbol::{ScopedSymbolId, Symbol, SymbolKind};
 use swamp_types::prelude::*;
-use tracing::info;
 
 pub const MAX_VIRTUAL_REGISTER: usize = 48;
 
@@ -30,7 +29,7 @@ pub(crate) fn allocate_next_register(scope: &mut ScopeInfo) -> Option<u8> {
         None
     } else {
         scope.total_scopes.current_register += 1;
-        info!(?scope.total_scopes.current_register, "allocated register");
+        //info!(?scope.total_scopes.current_register, "allocated register");
         Some(scope.total_scopes.current_register as u8)
     }
 }

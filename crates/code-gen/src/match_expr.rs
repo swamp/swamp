@@ -6,14 +6,14 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Match, NormalPattern, Pattern, PatternElement};
 use swamp_vm_isa::MemoryOffset;
+use swamp_vm_types::types::{b8_type, u8_type, BasicTypeKind, Place, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, b8_type, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_match_enum(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         match_expr: &Match,
         ctx: &Context,
     ) {
@@ -199,7 +199,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_match_literal(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         match_expr: &Match,
         ctx: &Context,
     ) {

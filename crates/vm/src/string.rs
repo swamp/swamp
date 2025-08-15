@@ -29,7 +29,7 @@ impl Vm {
         let byte_count = header.element_count;
 
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!(
                 "get string {:X}. Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
                 string_header_addr,
@@ -65,7 +65,7 @@ impl Vm {
             if byte_count > 0 {
                 let s = std::str::from_utf8(bytes).unwrap_or("INVALID_UTF8");
                 #[cfg(feature = "debug_vm")]
-                if true || self.debug_operations_enabled {
+                if self.debug_operations_enabled {
                     eprintln!("String content: \"{s}\" at addr {string_header_addr:X}");
                 }
                 self.verify_string_without_mut(bytes);
@@ -76,11 +76,13 @@ impl Vm {
     }
 
     pub fn verify_string(&mut self, raw_bytes: &[u8]) {
-        let hex: String = raw_bytes.iter()
-            .map(|b| format!("{:02X}", b))
-            .collect::<Vec<_>>()
-            .join(" ");
-        eprintln!("raw_string: '{hex}'");
+        if self.debug_operations_enabled {
+            let hex: String = raw_bytes.iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            eprintln!("raw_string: '{hex}'");
+        }
 
         if raw_bytes.contains(&0) {
             return self.internal_trap(TrapCode::InvalidUtf8Sequence);
@@ -88,12 +90,13 @@ impl Vm {
     }
 
     pub fn verify_string_without_mut(&self, raw_bytes: &[u8]) {
-        let hex: String = raw_bytes.iter()
-            .map(|b| format!("{:02X}", b))
-            .collect::<Vec<_>>()
-            .join(" ");
-        eprintln!("raw_string: '{hex}'");
-
+        if self.debug_operations_enabled {
+            let hex: String = raw_bytes.iter()
+                .map(|b| format!("{:02X}", b))
+                .collect::<Vec<_>>()
+                .join(" ");
+            eprintln!("raw_string: '{hex}'");
+        }
         if raw_bytes.contains(&0) {
             panic!("illegal string");
         }
@@ -102,7 +105,7 @@ impl Vm {
 
     pub fn execute_string_from_bytes(&mut self, target_string_view_reg: u8, bytes_vec_reg: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING FROM BYTES ===");
         }
         let bytes_header_addr = get_reg!(self, bytes_vec_reg);
@@ -131,7 +134,7 @@ impl Vm {
 
     pub fn execute_string_storage_from_bytes(&mut self, target_string_storage_reg: u8, bytes_vec_reg: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING STORAGE FROM BYTES ===");
         }
         let bytes_header_addr = get_reg!(self, bytes_vec_reg);
@@ -161,7 +164,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_duplicate(&mut self, target_string_view_reg: u8, string_storage: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING DUPLICATE OPERATION ===");
         }
         let str_a = self.get_string(string_storage).to_string();
@@ -175,7 +178,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_append(&mut self, target_string_reg: u8, string_a: u8, string_b: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING_APPEND OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
@@ -205,7 +208,7 @@ impl Vm {
         self.verify_string(result.as_bytes());
 
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!(
                 "Concatenated string: \"{}\" (length: {})",
                 result,
@@ -217,7 +220,7 @@ impl Vm {
         // Debug: Print final register value
         let final_reg_value = get_reg!(self, target_string_reg);
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("append: Final target register value: 0x{final_reg_value:X}");
         }
     }
@@ -225,7 +228,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_repeat(&mut self, target_string_reg: u8, string_a: u8, repeat_reg: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING_REPEAT OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
@@ -277,7 +280,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_cmp(&mut self, dest_reg: u8, string_a: u8, string_b: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING_COMPARE OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
@@ -322,7 +325,7 @@ impl Vm {
         other_string_reg: u8,
     ) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== String starts with OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",
@@ -357,7 +360,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_to_float(&mut self, dest_tuple_reg: u8, source_string: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== String to float OPERATION ===");
         }
 
@@ -386,7 +389,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_to_int(&mut self, dest_tuple_reg: u8, source_string: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== String to int OPERATION ===");
         }
 
@@ -415,7 +418,7 @@ impl Vm {
     #[inline]
     pub fn execute_string_to_string(&mut self, dest_reg: u8, source_string: u8) {
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!("=== STRING_TO_STRING OPERATION ===");
             eprintln!(
                 "Memory layout: constants: 0x0-0x{:X}, stack: 0x{:X}-0x{:X}, heap: 0x{:X}-0x{:X}",

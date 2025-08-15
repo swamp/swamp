@@ -6,13 +6,13 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use std::mem::size_of;
-use swamp_vm_isa::{HeapMemoryAddress, VEC_HEADER_MAGIC_CODE, VecHeader};
-use swamp_vm_types::types::{BasicTypeKind, Destination, VmType, string_type};
+use swamp_vm_isa::{HeapMemoryAddress, VecHeader, VEC_HEADER_MAGIC_CODE};
+use swamp_vm_types::types::{string_type, BasicTypeKind, Place, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_string_literal(
         &mut self,
-        destination: &Destination,
+        destination: &Place,
         node: &Node,
         string: &str,
         ctx: &Context,
@@ -66,10 +66,10 @@ impl CodeBuilder<'_> {
         );
 
         match destination {
-            Destination::Unit => {
+            Place::Discard => {
                 panic!("can not write string to unit")
             }
-            Destination::Register(target_register) => {
+            Place::Register(target_register) => {
                 self.builder.add_mov_32_immediate_value(
                     target_register,
                     string_header_in_heap_ptr.0,
@@ -77,7 +77,7 @@ impl CodeBuilder<'_> {
                     &format!("constant string '{string}'"),
                 );
             }
-            Destination::Memory(memory_location) => {
+            Place::Memory(memory_location) => {
                 // Special case: if destination is StringStorage, copy the string data directly
                 if matches!(
                     memory_location.ty.basic_type.kind,

@@ -2,13 +2,13 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Expression};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u8_type};
+use swamp_vm_types::types::{u8_type, Place, TypedRegister, VmType};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_binary_operator(
@@ -249,7 +249,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_none_coalesce_operator(
         &mut self,
-        dest: &Destination,
+        dest: &Place,
         left: &Expression,
         right: &Expression,
         node: &Node,
@@ -260,7 +260,7 @@ impl CodeBuilder<'_> {
 
         let left_optional_basic_type = self.state.layout_cache.layout(&left.ty);
 
-        let destination_storage: Destination; // so it lives long enough
+        let destination_storage: Place; // so it lives long enough
         let destination_to_use = if both_are_optionals {
             dest
         } else {

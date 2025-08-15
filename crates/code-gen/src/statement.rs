@@ -9,18 +9,18 @@ use source_map_node::Node;
 use swamp_semantic::{BooleanExpression, Expression, ForPattern, Iterable};
 use swamp_types::TypeKind;
 use swamp_types::TypeRef;
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{Place, TypedRegister};
 
 impl CodeBuilder<'_> {
     pub fn emit_statement(&mut self, expr: &Expression, ctx: &Context) {
         debug_assert!(matches!(&*expr.ty.kind, TypeKind::Unit | TypeKind::Never));
-        let output_destination = Destination::new_unit();
+        let output_destination = Place::new_unit();
         self.emit_expression(&output_destination, expr, ctx);
     }
 
     pub(crate) fn emit_for_loop(
         &mut self,
-        destination: &Destination,
+        destination: &Place,
         node: &Node,
         for_pattern: &ForPattern,
         iterable: &Iterable,
@@ -131,7 +131,7 @@ impl CodeBuilder<'_> {
 
     fn emit_for_loop_lambda(
         &mut self,
-        target_reg: &Destination,
+        target_reg: &Place,
         node: &Node,
         collection: Collection,
         source_collection: &TypedRegister,

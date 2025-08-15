@@ -14,7 +14,7 @@ use swamp_vm_isa::{
     GRID_HEADER_HEIGHT_OFFSET, GRID_HEADER_WIDTH_OFFSET,
 };
 use swamp_vm_types::types::{
-    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Destination, TypedRegister,
+    float_type, int_type, pointer_type, u16_type, u32_type, u8_type, Place, TypedRegister,
     VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
@@ -24,7 +24,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::single_match_else)]
     pub fn emit_single_intrinsic_call(
         &mut self,
-        target_reg: &Destination,
+        target_reg: &Place,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         arguments: &[ArgumentExpression],
@@ -60,7 +60,7 @@ impl CodeBuilder<'_> {
 
     pub fn emit_intrinsic_map(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         intrinsic_fn: &IntrinsicFunction,
         self_ptr_reg: &PointerLocation,
         arguments: &[Expression],
@@ -93,7 +93,7 @@ impl CodeBuilder<'_> {
 
     pub fn emit_intrinsic_sparse(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         intrinsic_fn: &IntrinsicFunction,
         self_ptr_reg: &PointerLocation,
         arguments: &[Expression],
@@ -133,7 +133,7 @@ impl CodeBuilder<'_> {
     }
     pub fn emit_intrinsic_grid(
         &mut self,
-        target_destination: &Destination,
+        target_destination: &Place,
         intrinsic_fn: &IntrinsicFunction,
         self_ptr_reg: &PointerLocation,
         arguments: &[Expression],
@@ -268,7 +268,7 @@ impl CodeBuilder<'_> {
                 );
 
                 // Create a source destination from the temporary register
-                let value_source = Destination::Register(temp.register);
+                let value_source = Place::Register(temp.register);
 
                 // Use emit_copy_value_between_destinations to handle both register and memory destinations
                 self.emit_copy_value_between_destinations(
@@ -303,7 +303,7 @@ impl CodeBuilder<'_> {
                 );
 
                 // Create a source destination from the temporary register
-                let value_source = Destination::Register(temp.register);
+                let value_source = Place::Register(temp.register);
 
                 // Use emit_copy_value_between_destinations to handle both register and memory destinations
                 self.emit_copy_value_between_destinations(
@@ -320,7 +320,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     fn emit_intrinsic_call_vec(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         intrinsic_fn: &IntrinsicFunction,
         self_ptr_reg: &PointerLocation,
         arguments: &[Expression],
@@ -495,7 +495,7 @@ impl CodeBuilder<'_> {
                     );
 
                     // Copy from temporary register to destination
-                    let source = Destination::Register(temp_reg.register);
+                    let source = Place::Register(temp_reg.register);
                     self.emit_copy_value_between_destinations(
                         output_destination,
                         &source,
@@ -802,7 +802,7 @@ impl CodeBuilder<'_> {
 
     pub fn emit_intrinsic_transformer(
         &mut self,
-        target_destination: &Destination,
+        target_destination: &Place,
         intrinsic_fn: &IntrinsicFunction,
         self_addr: &PointerLocation,
         lambda: (Vec<VariableRef>, &Expression),
@@ -866,10 +866,10 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_arguments)]
     pub fn emit_single_intrinsic_call_with_self_destination(
         &mut self,
-        target_destination: &Destination,
+        target_destination: &Place,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
-        self_destination: Option<&Destination>,
+        self_destination: Option<&Place>,
         arguments: &[ArgumentExpression],
         ctx: &Context,
         comment: &str,
@@ -897,7 +897,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_arguments)]
     pub fn emit_single_intrinsic_call_with_self(
         &mut self,
-        target_destination: &Destination,
+        target_destination: &Place,
         node: &Node,
         intrinsic_fn: &IntrinsicFunction,
         self_reg: Option<&TypedRegister>,

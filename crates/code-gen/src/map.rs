@@ -7,19 +7,19 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{Expression, MapType};
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::{BasicTypeRef, Destination, VmType};
+use swamp_vm_types::types::{BasicTypeRef, Place, VmType};
 use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     /// Emits Swamp VM opcodes to calculate the memory address of an element within a map.
     pub fn map_subscript_helper(
         &mut self,
-        map_header_location: &Destination,
+        map_header_location: &Place,
         map_type: &MapType,
         key_expression: &Expression,
         should_create_if_needed: bool,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         let map_header_ptr_reg = self.emit_compute_effective_address_to_register(
             map_header_location,
             &key_expression.node,
@@ -66,7 +66,7 @@ impl CodeBuilder<'_> {
         }
 
         // a map subscript is always a memory location
-        Destination::Memory(MemoryLocation {
+        Place::Memory(MemoryLocation {
             base_ptr_reg: map_entry_reg.register,
             offset: MemoryOffset(0),
             ty: VmType::new_unknown_placement(gen_value_type),

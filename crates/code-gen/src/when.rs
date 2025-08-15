@@ -6,14 +6,14 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::{Expression, WhenBinding};
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{u8_type, Place, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_when(
         &mut self,
-        target_reg: &Destination,
+        target_reg: &Place,
         bindings: &Vec<WhenBinding>,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -77,14 +77,14 @@ impl CodeBuilder<'_> {
 
             // For when expressions, we always extract the value, never create references
             let target_destination = if target_binding_variable_reg.ty.is_scalar() {
-                Destination::Register(target_binding_variable_reg)
+                Place::Register(target_binding_variable_reg)
             } else {
-                Destination::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
+                Place::Memory(MemoryLocation::new_copy_over_whole_type_with_zero_offset(
                     target_binding_variable_reg,
                 ))
             };
 
-            let source_destination = Destination::Memory(source_memory_location);
+            let source_destination = Place::Memory(source_memory_location);
             self.emit_copy_value_from_memory_location(
                 &target_destination,
                 &source_destination.memory_location_or_pointer_reg(),

@@ -12,8 +12,8 @@ use swamp_semantic::{
     UnaryOperator, UnaryOperatorKind,
 };
 use swamp_types::TypeKind;
+use swamp_vm_types::types::{b8_type, Place, TypedRegister, VmType};
 use swamp_vm_types::PatchPosition;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, b8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn force_normalized_bool_reg_if_needed(
@@ -162,7 +162,7 @@ impl CodeBuilder<'_> {
                 _ => panic!("unary operator does not provide us with P flag"),
             },
             _ => {
-                let destination = Destination::Register(dest_bool_reg.clone());
+                let destination = Place::Register(dest_bool_reg.clone());
                 self.emit_expression(&destination, condition, ctx);
             }
         }

@@ -2076,7 +2076,7 @@ impl<'a> Analyzer<'a> {
 
     fn push_block_scope(&mut self, debug_str: &str) {
         let register_watermark = self.scope.total_scopes.current_register;
-        info!("-> SCOPE {debug_str} hwm:{register_watermark}");
+        //info!("-> SCOPE {debug_str} hwm:{register_watermark}");
 
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Open,
@@ -2098,13 +2098,13 @@ impl<'a> Analyzer<'a> {
     }
 
     fn pop_block_scope(&mut self, debug_str: &str) {
-        info!("<- SCOPE {debug_str}");
+        //info!("<- SCOPE {debug_str}");
         self.pop_any_block_scope();
     }
 
     fn push_closed_block_scope(&mut self) {
         let register_watermark = self.scope.total_scopes.current_register;
-        info!("-> Push CLOSED SCOPE  hwm:{register_watermark}");
+        //info!("-> Push CLOSED SCOPE  hwm:{register_watermark}");
         self.scope.active_scope.block_scope_stack.push(BlockScope {
             mode: BlockScopeMode::Closed,
             lookup: Default::default(),
@@ -2145,7 +2145,7 @@ impl<'a> Analyzer<'a> {
             // Regular scopes restore their watermark to free up registers
             // This enables register reuse when variables go out of scope
 
-            info!( scope.register_watermark, "<- pop any block scope: restoring hwm");
+            //info!( scope.register_watermark, "<- pop any block scope: restoring hwm");
             self.scope.total_scopes.current_register = scope.register_watermark;
         }
     }
@@ -2160,7 +2160,6 @@ impl<'a> Analyzer<'a> {
         let own_context = default_context.clone();
 
         self.push_block_scope("match block");
-        info!("scrutinee_context");
         // Analyze the scrutinee with no specific expected type
         let scrutinee_context = TypeContext::new_anything_argument(true); // we just using the pointer, so pretend that it is a target
         let resolved_scrutinee = self.analyze_expression(scrutinee, &scrutinee_context);
@@ -2913,23 +2912,28 @@ impl<'a> Analyzer<'a> {
             }
         };
 
-        // verify the type now
-        match variable_type {
-            VariableType::Local => {
-                if !final_variable_type.can_be_stored_in_variable() {
-                    return self.create_err_resolved(
-                        ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
-                        &node,
-                    );
-                }
-            }
+        let debug_text = self.get_text(ast_node);
+        let unused_var = debug_text.starts_with('_');
 
-            VariableType::Parameter => {
-                if !final_variable_type.allowed_as_return_type() {
-                    return self.create_err_resolved(
-                        ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
-                        &node,
-                    );
+        if !unused_var {
+            // verify the type now
+            match variable_type {
+                VariableType::Local => {
+                    if !final_variable_type.can_be_stored_in_variable() {
+                        return self.create_err_resolved(
+                            ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
+                            &node,
+                        );
+                    }
+                }
+
+                VariableType::Parameter => {
+                    if !final_variable_type.allowed_as_return_type() {
+                        return self.create_err_resolved(
+                            ErrorKind::VariableTypeMustBeAtLeastTransient(final_variable_type),
+                            &node,
+                        );
+                    }
                 }
             }
         }

@@ -8,24 +8,24 @@ use source_map_node::Node;
 use swamp_semantic::Expression;
 use swamp_types::TypeRef;
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, pointer_type};
+use swamp_vm_types::types::{pointer_type, Place, TypedRegister, VmType};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
     pub fn sparse_subscript_helper(
         &mut self,
-        vec_header_location: &Destination,
+        vec_header_location: &Place,
         analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         let pointer_location = self.sparse_subscript_helper_helper(
             vec_header_location,
             analyzed_element_type,
             int_expr,
             ctx,
         );
-        Destination::Memory(pointer_location.memory_location())
+        Place::Memory(pointer_location.memory_location())
     }
 
     pub(crate) fn emit_sparse_add(
@@ -103,7 +103,7 @@ impl CodeBuilder<'_> {
     }
     pub fn sparse_subscript_helper_helper(
         &mut self,
-        sparse_header_location: &Destination,
+        sparse_header_location: &Place,
         analyzed_element_type: &TypeRef,
         int_expr: &Expression,
         ctx: &Context,

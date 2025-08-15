@@ -9,7 +9,7 @@ use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::{CompoundOperatorKind, Expression, TargetAssignmentLocation};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{Destination, TypedRegister};
+use swamp_vm_types::types::{Place, TypedRegister};
 
 impl CodeBuilder<'_> {
     /// Emits code for an assignment operation (lhs = rhs).
@@ -95,7 +95,7 @@ impl CodeBuilder<'_> {
             _ => panic!("not allowed as a compound assignment"), // TODO: Should not panic, just return error
         }
 
-        if let Destination::Memory(mem) = assignment_target {
+        if let Place::Memory(mem) = assignment_target {
             self.emit_store_scalar_to_memory_offset_instruction(
                 &mem,
                 resolved.register(),

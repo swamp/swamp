@@ -18,14 +18,14 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_isa::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_isa::{
-    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, FrameMemorySize,
-    MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    FrameMemorySize, MemoryOffset, MemorySize, ANY_HEADER_HASH_OFFSET,
+    ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::types::{
-    BasicTypeRef, Destination, TypedRegister, VmType, b8_type, u8_type, u32_type,
+    b8_type, u32_type, u8_type, BasicTypeRef, Place, TypedRegister, VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, FrameMemoryRegion, MemoryLocation, PointerLocation};
 use tracing::info;
@@ -175,7 +175,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_if(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         condition: &BooleanExpression,
         true_expr: &Expression,
         maybe_false_expr: Option<&Expression>,
@@ -224,7 +224,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_option_expression_into_target_memory_location(
         &mut self,
-        output: &Destination,
+        output: &Place,
         node: &Node,
         maybe_option: Option<&Expression>,
         ctx: &Context,
@@ -294,7 +294,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_block(
         &mut self,
-        target_reg: &Destination,
+        target_reg: &Place,
         expressions: &[Expression],
         ctx: &Context,
     ) {
@@ -375,14 +375,14 @@ impl CodeBuilder<'_> {
         ty: &BasicTypeRef,
         node: &Node,
         comment: &str,
-    ) -> Destination {
+    ) -> Place {
         let location = self.allocate_frame_space_and_return_memory_location(ty, node, comment);
-        Destination::new_location(location)
+        Place::new_location(location)
     }
 
     pub(crate) fn emit_constant_access(
         &mut self,
-        output: &Destination,
+        output: &Place,
         constant_reference: &ConstantRef,
         node: &Node,
         ctx: &Context,
@@ -476,7 +476,7 @@ impl CodeBuilder<'_> {
         expr: &Expression,
         ctx: &Context,
     ) {
-        let destination = Destination::Register(target_reg.clone());
+        let destination = Place::Register(target_reg.clone());
 
         // Since Char (u32) is same size as Int(i32), we can just use it directly
         self.emit_expression(&destination, expr, ctx);
@@ -484,7 +484,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_coerce_int_to_byte(
         &mut self,
-        output: &Destination,
+        output: &Place,
         expr: &Expression,
         ctx: &Context,
     ) {
@@ -492,12 +492,12 @@ impl CodeBuilder<'_> {
         self.emit_expression(output, expr, ctx);
 
         match output {
-            Destination::Unit => {}
-            Destination::Register(dest_reg) => {
+            Place::Discard => {}
+            Place::Register(dest_reg) => {
                 self.builder
                     .add_check_u8(dest_reg, &expr.node, "trunc int to byte");
             }
-            Destination::Memory(mem) => {
+            Place::Memory(mem) => {
                 let hwm = self.temp_registers.save_mark();
                 let temp_u8 = self
                     .temp_registers
@@ -545,7 +545,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_coerce_to_any(
         &mut self,
-        output: &Destination,
+        output: &Place,
         expr: &Expression,
         ctx: &Context,
     ) {

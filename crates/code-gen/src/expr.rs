@@ -7,8 +7,8 @@ use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
 use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
+use swamp_vm_types::types::{int_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -29,7 +29,7 @@ impl CodeBuilder<'_> {
     ///
     /// If something needs temporary storage, we'll handle that too.
     #[allow(clippy::too_many_lines)]
-    pub fn emit_expression(&mut self, output: &Destination, expr: &Expression, ctx: &Context) {
+    pub fn emit_expression(&mut self, output: &Place, expr: &Expression, ctx: &Context) {
         let node = &expr.node;
 
         if self.options.should_show_debug {
@@ -62,11 +62,11 @@ impl CodeBuilder<'_> {
 
         // If the expression needs a memory target, and the current output is not a memory target, create temp memory to materialize in
         // and return a pointer in the register instead and hopefully it works out.
-        if !matches!(output, Destination::Memory(_))
+        if !matches!(output, Place::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -104,7 +104,7 @@ impl CodeBuilder<'_> {
                 self.emit_string_literal(output, node, str, ctx);
             }
             ExpressionKind::IntLiteral(int) => match output {
-                Destination::Register(target_reg) => {
+                Place::Register(target_reg) => {
                     self.builder.add_mov_32_immediate_value(
                         target_reg,
                         *int as u32,
@@ -112,7 +112,7 @@ impl CodeBuilder<'_> {
                         "int literal",
                     );
                 }
-                Destination::Memory(location) => {
+                Place::Memory(location) => {
                     let temp_int_literal_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for int literal",
@@ -130,16 +130,16 @@ impl CodeBuilder<'_> {
                         &format!("copy int literal into destination memory {location} <- {temp_int_literal_reg}"),
                     );
                 }
-                Destination::Unit => {
+                Place::Discard => {
                     panic!("int can not materialize into nothing")
                 }
             },
             ExpressionKind::ByteLiteral(byte) => match output {
-                Destination::Register(target_reg) => {
+                Place::Register(target_reg) => {
                     self.builder
                         .add_mov8_immediate(target_reg, *byte, node, "int literal");
                 }
-                Destination::Memory(location) => {
+                Place::Memory(location) => {
                     let temp_byte_literal_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for byte literal",
@@ -157,12 +157,12 @@ impl CodeBuilder<'_> {
                         &format!("copy byte literal into destination memory {location} <- {temp_byte_literal_reg}"),
                     );
                 }
-                Destination::Unit => {
+                Place::Discard => {
                     panic!("byte can not materialize into nothing")
                 }
             },
             ExpressionKind::FloatLiteral(fixed_point) => match output {
-                Destination::Register(target_reg) => {
+                Place::Register(target_reg) => {
                     self.builder.add_mov_32_immediate_value(
                         target_reg,
                         fixed_point.inner() as u32,
@@ -170,7 +170,7 @@ impl CodeBuilder<'_> {
                         "float literal",
                     );
                 }
-                Destination::Memory(location) => {
+                Place::Memory(location) => {
                     let temp_fixed_point_temp_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for float literal",
@@ -188,7 +188,7 @@ impl CodeBuilder<'_> {
                         "copy float literal into destination memory",
                     );
                 }
-                Destination::Unit => {
+                Place::Discard => {
                     panic!("int can not materialize into nothing")
                 }
             },
@@ -196,11 +196,11 @@ impl CodeBuilder<'_> {
                 //let union_info = output.ty().unwrap_info().unwrap();
 
                 match output {
-                    Destination::Register(target_reg) => {
+                    Place::Register(target_reg) => {
                         self.builder
                             .add_mov8_immediate(target_reg, 0, node, "none literal");
                     }
-                    Destination::Memory(location) => {
+                    Place::Memory(location) => {
                         let temp_none_literal_reg = self.temp_registers.allocate(
                             VmType::new_contained_in_register(int_type()),
                             "temporary for none literal",
@@ -219,13 +219,13 @@ impl CodeBuilder<'_> {
                             "copy none literal into destination memory",
                         );
                     }
-                    Destination::Unit => {
+                    Place::Discard => {
                         panic!("none can not materialize into nothing")
                     }
                 }
             }
             ExpressionKind::BoolLiteral(truthy) => match output {
-                Destination::Register(target_reg) => {
+                Place::Register(target_reg) => {
                     self.builder.add_mov8_immediate(
                         target_reg,
                         u8::from(*truthy),
@@ -233,7 +233,7 @@ impl CodeBuilder<'_> {
                         "bool literal",
                     );
                 }
-                Destination::Memory(location) => {
+                Place::Memory(location) => {
                     let temp_bool_literal_reg = self.temp_registers.allocate(
                         VmType::new_contained_in_register(int_type()),
                         "temporary for bool literal",
@@ -252,7 +252,7 @@ impl CodeBuilder<'_> {
                         "copy bool literal into destination memory",
                     );
                 }
-                Destination::Unit => {
+                Place::Discard => {
                     panic!("int can not materialize into nothing")
                 }
             },
@@ -317,7 +317,7 @@ impl CodeBuilder<'_> {
             }
             ExpressionKind::VariableAccess(variable_ref) => {
                 let variable_register = self.get_variable_register(variable_ref).clone();
-                let source_destination = Destination::Register(variable_register);
+                let source_destination = Place::Register(variable_register);
                 self.emit_copy_value_between_destinations(
                     output,
                     &source_destination,
@@ -345,10 +345,10 @@ impl CodeBuilder<'_> {
                     ctx,
                 ),
                 _ => match output {
-                    Destination::Register(reg) => {
+                    Place::Register(reg) => {
                         self.emit_binary_operator(reg, operator, ctx);
                     }
-                    Destination::Memory(mem_loc) => {
+                    Place::Memory(mem_loc) => {
                         let temp_reg = self
                             .temp_registers
                             .allocate(mem_loc.ty.clone(), "binary_op_temp");
@@ -361,16 +361,16 @@ impl CodeBuilder<'_> {
                             "store binary op result directly to memory with offset",
                         );
                     }
-                    Destination::Unit => {
+                    Place::Discard => {
                         panic!("binary operator always returns a value")
                     }
                 },
             },
             ExpressionKind::UnaryOp(operator) => match output {
-                Destination::Register(reg) => {
+                Place::Register(reg) => {
                     self.emit_unary_operator(reg, operator, ctx);
                 }
-                Destination::Memory(mem_loc) => {
+                Place::Memory(mem_loc) => {
                     let temp_reg = self
                         .temp_registers
                         .allocate(mem_loc.ty.clone(), "unary_op_temp");
@@ -383,7 +383,7 @@ impl CodeBuilder<'_> {
                         "store unary op result directly to memory with offset",
                     );
                 }
-                Destination::Unit => {
+                Place::Discard => {
                     panic!("unary operator always returns a value")
                 }
             },
@@ -441,7 +441,7 @@ impl CodeBuilder<'_> {
                 // For lvalue definitions, the variable should be initialized with the memory address
                 // This is used in `with` statements, e.g. `mut var = &some.field`
                 match output {
-                    Destination::Unit => {
+                    Place::Discard => {
                         let lvalue_destination = self.emit_lvalue_address(location_expr, ctx);
 
                         let alias_register = self.get_variable_register(variable).clone();
@@ -546,7 +546,7 @@ impl CodeBuilder<'_> {
             );
         }
 
-        let output = Destination::new_location(memory_location.clone());
+        let output = Place::new_location(memory_location.clone());
         self.emit_expression(&output, expr, ctx);
     }
 
@@ -557,7 +557,7 @@ impl CodeBuilder<'_> {
         comment: &str,
         ctx: &Context,
     ) {
-        let output = Destination::new_reg(target_register.clone());
+        let output = Place::new_reg(target_register.clone());
 
         self.emit_expression(&output, expr, ctx);
     }

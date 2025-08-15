@@ -10,17 +10,17 @@ use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
-    SpilledRegisterRegion, err,
+    err, ArgumentAndTempScope, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
 use swamp_vm_isa::REG_ON_FRAME_SIZE;
+use swamp_vm_types::types::{BasicTypeRef, Place, TypedRegister, VmType};
 use swamp_vm_types::FrameMemoryRegion;
-use swamp_vm_types::types::{BasicTypeRef, Destination, TypedRegister, VmType};
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,
@@ -32,7 +32,7 @@ pub struct EmitArgumentInfo {
 }
 
 pub struct MutableReturnReg {
-    pub target_location_after_call: Destination,
+    pub target_location_after_call: Place,
     pub parameter_reg: TypedRegister,
 }
 
@@ -102,7 +102,7 @@ impl CodeBuilder<'_> {
 
     pub fn setup_return_pointer_reg(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         return_basic_type: BasicTypeRef,
         node: &Node,
     ) {
@@ -203,7 +203,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_arguments(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
@@ -374,7 +374,7 @@ impl CodeBuilder<'_> {
 
         // Phase 3: Copy from temporary safe registers to the final destinations
         for (temp_reg, copy_back) in temp_saved_values {
-            let temp_source = Destination::Register(temp_reg.register().clone());
+            let temp_source = Place::Register(temp_reg.register().clone());
             self.emit_copy_value_between_destinations(
                 &copy_back.target_location_after_call,
                 &temp_source,
@@ -540,7 +540,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
@@ -552,7 +552,7 @@ impl CodeBuilder<'_> {
     }
     pub(crate) fn emit_internal_call(
         &mut self,
-        target_reg: &Destination,
+        target_reg: &Place,
         node: &Node,
         internal_fn: &InternalFunctionDefinitionRef,
         arguments: &Vec<ArgumentExpression>,

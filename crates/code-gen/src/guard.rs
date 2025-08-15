@@ -5,12 +5,12 @@
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use swamp_semantic::Guard;
-use swamp_vm_types::types::Destination;
+use swamp_vm_types::types::Place;
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_guard(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         guards: &Vec<Guard>,
         ctx: &Context,
     ) {

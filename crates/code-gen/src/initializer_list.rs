@@ -6,8 +6,8 @@ use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use source_map_node::Node;
 use swamp_semantic::Expression;
-use swamp_vm_isa::{COLLECTION_ELEMENT_COUNT_OFFSET, MemoryOffset, VEC_HEADER_PAYLOAD_OFFSET};
-use swamp_vm_types::types::{BasicTypeRef, Destination};
+use swamp_vm_isa::{MemoryOffset, COLLECTION_ELEMENT_COUNT_OFFSET, VEC_HEADER_PAYLOAD_OFFSET};
+use swamp_vm_types::types::{BasicTypeRef, Place};
 use swamp_vm_types::{AggregateMemoryLocation, MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
@@ -62,7 +62,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_vec_like_collection_init_from_initialization_list(
         &mut self,
-        output_destination: &Destination,
+        output_destination: &Place,
         elements: &[Expression],
         node: &Node,
         ctx: &Context,

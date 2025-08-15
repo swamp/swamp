@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::DetailedLocationResolved;
 use crate::code_bld::CodeBuilder;
+use crate::DetailedLocationResolved;
 use source_map_node::Node;
 use swamp_vm_isa::COLLECTION_CAPACITY_OFFSET;
+use swamp_vm_types::types::{u16_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Destination, TypedRegister, VmType, u16_type};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -22,20 +22,20 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_transfer_value_to_register(
         &mut self,
         target_reg: &TypedRegister,
-        source: &Destination,
+        source: &Place,
         node: &Node,
         comment: &str,
     ) {
         match source {
-            Destination::Register(source_reg) => {
+            Place::Register(source_reg) => {
                 if target_reg.index != source_reg.index {
                     self.emit_copy_register(target_reg, source_reg, node, comment);
                 }
             }
-            Destination::Memory(memory_location) => {
+            Place::Memory(memory_location) => {
                 self.emit_load_value_from_memory_source(target_reg, memory_location, node, comment);
             }
-            Destination::Unit => panic!("Cannot load from Unit destination"),
+            Place::Discard => panic!("Cannot load from Unit destination"),
         }
     }
 
@@ -56,7 +56,7 @@ impl CodeBuilder<'_> {
         if !source_type.is_reg_copy() {
             // We want the pointer since it is an aggregate. So either just copy the register
             // or flatten the pointer
-            let source_loc = Destination::Memory(source_memory_location.clone());
+            let source_loc = Place::Memory(source_memory_location.clone());
 
             self.emit_compute_effective_address_to_target_register(
                 target_reg,
@@ -95,11 +95,11 @@ impl CodeBuilder<'_> {
     /// * `None` - If the destination is Unit
     pub(crate) fn emit_load_scalar_or_absolute_aggregate_pointer(
         &mut self,
-        destination: &Destination,
+        destination: &Place,
         node: &Node,
         comment: &str,
     ) -> Option<TypedRegister> {
-        if matches!(destination, Destination::Unit) {
+        if matches!(destination, Place::Discard) {
             None
         } else {
             let vm_type = destination.vm_type().unwrap();
@@ -107,11 +107,11 @@ impl CodeBuilder<'_> {
             if vm_type.is_scalar() {
                 // Scalar case
                 match destination {
-                    Destination::Register(reg) => {
+                    Place::Register(reg) => {
                         // a) if it is a register, we are done: use that register
                         Some(reg.clone())
                     }
-                    Destination::Memory(memory_location) => {
+                    Place::Memory(memory_location) => {
                         // b) if it is a memory location: load_scalar_from_memory_location
                         let scalar_temp = self.temp_registers.allocate(
                             memory_location.ty.clone(),
@@ -127,7 +127,7 @@ impl CodeBuilder<'_> {
 
                         Some(scalar_temp.register)
                     }
-                    Destination::Unit => unreachable!(), // Already handled above
+                    Place::Discard => unreachable!(), // Already handled above
                 }
             } else {
                 // Aggregate case: we only need to flatten it if needed
@@ -158,7 +158,7 @@ impl CodeBuilder<'_> {
         if source_type.is_aggregate() {
             self.emit_compute_effective_address_to_target_register(
                 target_reg,
-                &Destination::Memory(source_memory_location.clone()),
+                &Place::Memory(source_memory_location.clone()),
                 node,
                 comment,
             );
@@ -185,13 +185,13 @@ impl CodeBuilder<'_> {
     /// register-based operations.
     pub(crate) fn emit_materialize_value_to_register(
         &mut self,
-        location: &Destination,
+        location: &Place,
         node: &Node,
         comment: &str,
     ) -> DetailedLocationResolved {
         match location {
-            Destination::Register(reg) => DetailedLocationResolved::Register(reg.clone()),
-            Destination::Memory(memory_location) => {
+            Place::Register(reg) => DetailedLocationResolved::Register(reg.clone()),
+            Place::Memory(memory_location) => {
                 let temp_reg_target = self.temp_registers.allocate(
                     memory_location.ty.clone(),
                     "emit load primitive from location",
@@ -204,7 +204,7 @@ impl CodeBuilder<'_> {
                 );
                 DetailedLocationResolved::TempRegister(temp_reg_target)
             }
-            Destination::Unit => {
+            Place::Discard => {
                 panic!("")
             }
         }
@@ -380,16 +380,16 @@ impl CodeBuilder<'_> {
 
     pub fn emit_copy_value_between_destinations(
         &mut self,
-        output_destination: &Destination,
-        value_source: &Destination,
+        output_destination: &Place,
+        value_source: &Place,
         node: &Node,
         comment: &str,
     ) {
         match output_destination {
-            Destination::Register(reg) => {
+            Place::Register(reg) => {
                 self.emit_transfer_value_to_register(reg, value_source, node, comment);
             }
-            Destination::Memory(_) => {
+            Place::Memory(_) => {
                 self.emit_store_value_to_memory_destination(
                     output_destination,
                     value_source,
@@ -397,7 +397,7 @@ impl CodeBuilder<'_> {
                     comment,
                 );
             }
-            Destination::Unit => {
+            Place::Discard => {
                 panic!("Cannot copy to Unit destination")
             }
         }
@@ -405,13 +405,13 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_copy_value_from_memory_location(
         &mut self,
-        destination: &Destination,
+        destination: &Place,
         source_memory_location: &MemoryLocation,
         node: &Node,
         comment: &str,
     ) {
         if let Some(_mem_loc) = destination.memory_location() {
-            let source_loc = Destination::Memory(source_memory_location.clone());
+            let source_loc = Place::Memory(source_memory_location.clone());
             self.emit_store_value_to_memory_destination(destination, &source_loc, node, comment);
         } else if let Some(output_target_reg) = destination.register() {
             self.emit_load_value_from_memory_source(
@@ -435,15 +435,15 @@ impl CodeBuilder<'_> {
     /// register using `emit_load_value_from_memory_source` before storing.
     pub(crate) fn emit_store_value_to_memory_destination(
         &mut self,
-        output_destination: &Destination,
-        value_source: &Destination,
+        output_destination: &Place,
+        value_source: &Place,
         node: &Node,
         comment: &str,
     ) {
         let output_mem_loc = output_destination.grab_memory_location(); // Assuming this is always a MemoryLocation
 
         match value_source {
-            Destination::Register(value_reg) => {
+            Place::Register(value_reg) => {
                 if value_reg.ty.is_reg_copy() {
                     self.emit_store_scalar_to_memory_offset_instruction(
                         output_mem_loc,
@@ -464,7 +464,7 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
-            Destination::Memory(source_mem_loc) => {
+            Place::Memory(source_mem_loc) => {
                 let temp_reg = self
                     .temp_registers
                     .allocate(source_mem_loc.ty.clone(), "temp_for_memory_to_memory_store");
@@ -492,7 +492,7 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
-            Destination::Unit => panic!("Cannot store from Unit source"),
+            Place::Discard => panic!("Cannot store from Unit source"),
         }
     }
 }

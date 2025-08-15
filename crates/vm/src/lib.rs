@@ -1235,7 +1235,7 @@ impl Vm {
         self.create_string(dst_reg, &val.to_string());
 
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             let read_back_string = self.read_string(get_reg!(self, dst_reg), self.memory());
             eprintln!("i32_to_string: {val}, {dst_reg} '{read_back_string}'");
         }
@@ -1342,7 +1342,7 @@ impl Vm {
         let compare = get_reg!(self, val_reg);
         set_reg!(self, dest_bool_reg, compare == octet as u32);
         #[cfg(feature = "debug_vm")]
-        if true || self.debug_operations_enabled {
+        if self.debug_operations_enabled {
             eprintln!(
                 "{compare} {octet} result: {}",
                 get_reg!(self, dest_bool_reg)

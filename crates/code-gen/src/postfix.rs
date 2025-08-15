@@ -8,7 +8,7 @@ use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::{u8_type, Destination, VmType};
+use swamp_vm_types::types::{u8_type, Place, VmType};
 use swamp_vm_types::MemoryLocation;
 
 impl CodeBuilder<'_> {
@@ -16,8 +16,8 @@ impl CodeBuilder<'_> {
     ///
     fn emit_final_load_if_needed(
         &mut self,
-        output_destination: &Destination,
-        current_location: &Destination,
+        output_destination: &Place,
+        current_location: &Place,
         node: &Node,
         chain: &[Postfix],
     ) {
@@ -29,11 +29,11 @@ impl CodeBuilder<'_> {
                 // No load needed if current location is already the right register
                 || matches!(
                     (output_destination, current_location),
-                    (Destination::Register(out), Destination::Register(curr)) if out.index == curr.index
+                    (Place::Register(out), Place::Register(curr)) if out.index == curr.index
             )
 
                 // No load needed for Unit destination
-                || matches!(output_destination, Destination::Unit)
+                || matches!(output_destination, Place::Discard)
         );
 
         if !needs_final_load {
@@ -49,9 +49,9 @@ impl CodeBuilder<'_> {
     }
 
     /// Handles writing None to the output destination for optional types
-    fn emit_none_to_destination(&mut self, output_destination: &Destination, node: &Node) {
+    fn emit_none_to_destination(&mut self, output_destination: &Place, node: &Node) {
         match output_destination {
-            Destination::Register(reg) => {
+            Place::Register(reg) => {
                 let temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u8_type()),
                     "temp for None tag",
@@ -74,7 +74,7 @@ impl CodeBuilder<'_> {
                     "store None tag to memory",
                 );
             }
-            Destination::Memory(mem_loc) => {
+            Place::Memory(mem_loc) => {
                 let temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u8_type()),
                     "temp for None tag",
@@ -92,13 +92,13 @@ impl CodeBuilder<'_> {
                     "store None tag to memory",
                 );
             }
-            Destination::Unit => {}
+            Place::Discard => {}
         }
     }
     /// Handles writing Some to the output destination for optional types
-    fn emit_some_to_destination(&mut self, output_destination: &Destination, node: &Node) {
+    fn emit_some_to_destination(&mut self, output_destination: &Place, node: &Node) {
         match output_destination {
-            Destination::Register(reg) => {
+            Place::Register(reg) => {
                 let temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u8_type()),
                     "temp for Some tag",
@@ -121,7 +121,7 @@ impl CodeBuilder<'_> {
                     "store Some tag to memory",
                 );
             }
-            Destination::Memory(mem_loc) => {
+            Place::Memory(mem_loc) => {
                 let temp_reg = self.temp_registers.allocate(
                     VmType::new_unknown_placement(u8_type()),
                     "temp for None tag",
@@ -139,7 +139,7 @@ impl CodeBuilder<'_> {
                     "store Some tag to memory",
                 );
             }
-            Destination::Unit => {}
+            Place::Discard => {}
         }
     }
 
@@ -368,7 +368,7 @@ impl CodeBuilder<'_> {
     #[allow(clippy::too_many_lines)]
     pub(crate) fn emit_postfix_chain(
         &mut self,
-        initial_output_destination: &Destination,
+        initial_output_destination: &Place,
         start_expression: &StartOfChain,
         chain: &[Postfix],
         ctx: &Context,
@@ -700,19 +700,19 @@ impl CodeBuilder<'_> {
         &mut self,
         start: &StartOfChain,
         ctx: &Context,
-    ) -> Destination {
+    ) -> Place {
         match &start.kind {
             StartOfChainKind::Expression(expr) => {
                 let reg = self.emit_scalar_rvalue(expr, ctx);
 
                 // If the register contains a primitive value directly, return it as is
                 if !reg.ty.is_aggregate() {
-                    return Destination::Register(reg);
+                    return Place::Register(reg);
                 }
 
                 // For pointers to primitive values, return a memory location
                 // This avoids unnecessary load instructions later
-                Destination::Memory(MemoryLocation {
+                Place::Memory(MemoryLocation {
                     ty: reg.ty.clone(),
                     base_ptr_reg: reg,
                     offset: MemoryOffset(0),
@@ -723,10 +723,10 @@ impl CodeBuilder<'_> {
 
                 // Same logic for variables - return memory location for pointers
                 if variable_reg.ty.is_reg_copy() {
-                    return Destination::Register(variable_reg.clone());
+                    return Place::Register(variable_reg.clone());
                 }
 
-                Destination::Memory(MemoryLocation {
+                Place::Memory(MemoryLocation {
                     base_ptr_reg: variable_reg.clone(),
                     offset: MemoryOffset(0),
                     ty: variable_reg.ty.clone(),

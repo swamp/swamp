@@ -5,7 +5,7 @@
 use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_isa::HeapMemoryAddress;
-use swamp_vm_types::types::{BasicTypeKind, Destination, TypedRegister, VmType};
+use swamp_vm_types::types::{BasicTypeKind, Place, TypedRegister, VmType};
 use swamp_vm_types::{MemoryLocation, PointerLocation};
 
 impl CodeBuilder<'_> {
@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
                     &format!("{comment} (load bool)"),
                 );
             }
-            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",),
+            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}", ),
         }
     }
 
@@ -188,21 +188,21 @@ impl CodeBuilder<'_> {
     /// storing the resulting calculated address in a new temporary register.
     pub(crate) fn emit_compute_effective_address_to_register(
         &mut self,
-        location: &Destination,
+        location: &Place,
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
         match location {
-            Destination::Register(reg) => reg.clone(),
-            Destination::Memory(memory_location) => {
+            Place::Register(reg) => reg.clone(),
+            Place::Memory(memory_location) => {
                 self.emit_compute_effective_address_from_location_to_register(
                     memory_location,
                     node,
                     comment,
                 )
-                .ptr_reg
+                    .ptr_reg
             }
-            Destination::Unit => {
+            Place::Discard => {
                 panic!("can not compute effective address from unit")
             }
         }
@@ -213,15 +213,15 @@ impl CodeBuilder<'_> {
     pub(crate) fn emit_compute_effective_address_to_target_register(
         &mut self,
         target_reg: &TypedRegister,
-        source_location: &Destination,
+        source_location: &Place,
         node: &Node,
         comment: &str,
     ) {
         match source_location {
-            Destination::Register(reg) => {
+            Place::Register(reg) => {
                 self.builder.add_mov_reg(target_reg, reg, node, comment);
             }
-            Destination::Memory(memory_location) => {
+            Place::Memory(memory_location) => {
                 if memory_location.offset.0 == 0 {
                     self.builder.add_mov_reg(
                         target_reg,
@@ -239,7 +239,7 @@ impl CodeBuilder<'_> {
                     );
                 }
             }
-            Destination::Unit => {
+            Place::Discard => {
                 panic!("can not compute effective address from unit")
             }
         }
