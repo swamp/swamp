@@ -57,7 +57,7 @@ fn test_enum_pattern_tuple_destructuring() {
         r"
         enum Result {
             Ok(Int),
-            Err(String),
+            Err(String<32>),
         }
 
         fn test_tuple_destructuring() -> Int {

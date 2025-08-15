@@ -6,7 +6,7 @@
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::FileId;
-use swamp_analyzer::Analyzer;
+use swamp_analyzer::{Analyzer, AnalyzerOptions};
 use swamp_modules::modules::Modules;
 use swamp_modules::symtbl::{DefinitionTable, SymbolTableRef};
 use swamp_semantic::ProgramState;
@@ -20,6 +20,9 @@ fn test_if_compiles() {
 
     let test_module_path: &[String] = &[];
     let file_id: FileId = 23;
+    let options = AnalyzerOptions {
+        allow_unsafe: false,
+    };
     let analyzer = Analyzer::new(
         &mut program_state,
         &modules,
@@ -27,5 +30,6 @@ fn test_if_compiles() {
         &source_map,
         test_module_path,
         file_id,
+        options,
     );
 }

@@ -2,7 +2,7 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::util::{should_fail, should_hint, should_work};
+use crate::util::{should_fail, should_work};
 
 mod util;
 
@@ -42,7 +42,7 @@ fn not_allowed_with_ending_optional_chaining() {
 
 #[test_log::test]
 fn fail_not_storage_in_struct() {
-    should_hint(
+    should_fail(
         r#"
         struct Atest {
             name: String, // this is not storage, can not save it here

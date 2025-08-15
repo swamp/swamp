@@ -35,8 +35,8 @@ use swamp_types::prelude::{
     AnonymousStructType, EnumType, EnumVariantCommon, EnumVariantType, StructTypeField, TypeCache,
     TypeRef,
 };
+use swamp_vm_isa::MemoryOffset;
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::MemoryOffset;
 use swamp_vm_types::types::BasicTypeKind;
 
 #[test]
@@ -136,7 +136,7 @@ fn test_struct_field_offsets() {
             // Struct alignment should be 4 bytes (determined by int and string pointer fields)
             assert_eq!(
                 struct_type.max_alignment,
-                swamp_vm_types::MemoryAlignment::U32
+                swamp_vm_isa::MemoryAlignment::U32
             );
         }
         _ => panic!("Expected struct type"),

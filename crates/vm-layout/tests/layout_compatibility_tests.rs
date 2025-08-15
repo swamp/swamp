@@ -10,9 +10,9 @@ use swamp_types::prelude::{
     AnonymousStructType, EnumVariantType, StructTypeField, TypeCache, TypeRef,
 };
 use swamp_types::prelude::{EnumType, EnumVariantCommon};
+use swamp_vm_isa::{MemoryAlignment, MemoryOffset, MemorySize};
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::BasicTypeKind;
-use swamp_vm_types::{MemoryAlignment, MemoryOffset, MemorySize};
 fn create_mixed_alignment_enum(type_cache: &mut TypeCache) -> TypeRef {
     let mut enum_type = EnumType::new(
         Node::default(),
