@@ -229,6 +229,7 @@ impl GenFunctionInfo {
 pub struct ConstantInfo {
     pub ip_range: InstructionRange,
     pub constant_ref: ConstantRef,
+    pub return_type: BasicTypeRef,
     pub target_constant_memory: HeapPlacedType,
 }
 

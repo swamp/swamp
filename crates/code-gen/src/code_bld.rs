@@ -18,13 +18,13 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_isa::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_isa::{
-    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, FrameMemorySize,
-    MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    FrameMemorySize, MemoryOffset, MemorySize, ANY_HEADER_HASH_OFFSET,
+    ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use swamp_vm_types::types::{
-    BasicTypeRef, Place, TypedRegister, VmType, b8_type, u8_type, u32_type,
+    b8_type, u32_type, u8_type, BasicTypeRef, Place, TypedRegister, VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, FrameMemoryRegion, MemoryLocation, PointerLocation};
 use tracing::info;
@@ -267,8 +267,9 @@ impl CodeBuilder<'_> {
             }
             {
                 let payload_location = &memory_lvalue_location
-                    .offset(union_information.payload_offset, b8_type())
+                    .offset(union_information.payload_offset, union_information.get_variant_by_index(1).ty.clone())
                     .location;
+                self.emit_initialize_memory_for_any_type(payload_location, node, "initialize error");
                 self.emit_expression_into_target_memory(
                     payload_location,
                     some_expression,
