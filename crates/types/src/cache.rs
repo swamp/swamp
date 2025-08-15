@@ -333,6 +333,18 @@ impl TypeCache {
         byte_type
     }
 
+    pub fn short(&mut self) -> Rc<Type> {
+        let short_kind = TypeKind::Short;
+
+        if let Some(existing) = self.find_type(&short_kind) {
+            return existing;
+        }
+
+        let short_type = self.create_type(short_kind);
+        self.add_type_to_cache(&short_type);
+        short_type
+    }
+
     pub fn int(&mut self) -> Rc<Type> {
         let int_kind = TypeKind::Int;
 

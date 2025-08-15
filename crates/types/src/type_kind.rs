@@ -14,6 +14,7 @@ pub type TypeRef = Rc<Type>;
 pub enum TypeKind {
     // Primitives
     Byte,
+    Short,
     Int,
     Codepoint,
     Float,
@@ -72,6 +73,7 @@ impl Display for TypeKind {
             Self::Pointer(inner) => write!(f, "Ptr<inner>"),
             Self::Any => write!(f, "Any"),
             Self::Byte => write!(f, "byte"),
+            Self::Short => write!(f, "short"),
             Self::Codepoint => write!(f, "codepoint"),
             Self::Int => write!(f, "int"),
             Self::Float => write!(f, "float"),

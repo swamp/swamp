@@ -77,6 +77,14 @@ impl TypeFlags {
                     .union(Self::IS_ALLOWED_RETURN)
                     .union(Self::IS_SCALAR);
             }
+            TypeKind::Short => {
+                flags = flags
+                    .union(Self::ALLOWED_FOR_SCOPED_BORROW)
+                    .union(Self::ALLOWED_FOR_VARIABLE)
+                    .union(Self::IS_STORAGE)
+                    .union(Self::IS_ALLOWED_RETURN)
+                    .union(Self::IS_SCALAR);
+            }
             TypeKind::Int => {
                 flags = flags
                     .union(Self::ALLOWED_FOR_SCOPED_BORROW)

@@ -1580,6 +1580,9 @@ pub fn internal_generate_to_string_function_for_type(
         TypeKind::Any => panic!("Any can not be converted to string"),
         TypeKind::Pointer(_) => panic!("Ptr can not be converted to string"),
         TypeKind::Byte => panic!("Byte to_string() is handled in core_text(), not generated here"),
+        TypeKind::Short => {
+            panic!("Short to_string() is handled in core_text(), not generated here")
+        }
         TypeKind::Codepoint => {
             panic!("Codepoint to_string() is handled in core_text(), not generated here")
         }

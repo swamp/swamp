@@ -2,12 +2,12 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::code_bld::CodeBuilder;
 use crate::DetailedLocationResolved;
+use crate::code_bld::CodeBuilder;
 use source_map_node::Node;
 use swamp_vm_isa::COLLECTION_CAPACITY_OFFSET;
-use swamp_vm_types::types::{u16_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Place, TypedRegister, VmType, u16_type};
 
 impl CodeBuilder<'_> {
     // Load -------------------------------------------------------
@@ -390,12 +390,7 @@ impl CodeBuilder<'_> {
                 self.emit_transfer_value_to_register(reg, value_source, node, comment);
             }
             Place::Memory(_) => {
-                self.emit_store_value_to_memory_place(
-                    output_place,
-                    value_source,
-                    node,
-                    comment,
-                );
+                self.emit_store_value_to_memory_place(output_place, value_source, node, comment);
             }
             Place::Discard => {
                 panic!("Cannot copy to Unit destination")

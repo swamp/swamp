@@ -300,6 +300,12 @@ impl LayoutCache {
             TypeKind::Byte => {
                 create_basic_type(ty.id, BasicTypeKind::U8, MemorySize(1), MemoryAlignment::U8)
             }
+            TypeKind::Short => create_basic_type(
+                ty.id,
+                BasicTypeKind::U16,
+                MemorySize(2),
+                MemoryAlignment::U16,
+            ),
             TypeKind::Codepoint => create_basic_type(
                 ty.id,
                 BasicTypeKind::U32,

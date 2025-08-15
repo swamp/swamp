@@ -29,6 +29,14 @@ fn add_intrinsic_types(core_ns: &mut DefinitionTable, cache: &mut TypeCache) {
     };
     core_ns.add_alias(byte_alias).unwrap();
 
+    let short_alias = AliasType {
+        symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
+        name: Node::new_unknown(),
+        assigned_name: "Short".to_string(),
+        ty: cache.short(),
+    };
+    core_ns.add_alias(short_alias).unwrap();
+
     let char_alias = AliasType {
         symbol_id: TopLevelSymbolId::new_illegal(), // usage should not be tracked
         name: Node::new_unknown(),
