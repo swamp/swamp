@@ -47,7 +47,7 @@ impl CodeBuilder<'_> {
                     &format!("{comment} (load bool)"),
                 );
             }
-            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}", ),
+            _ => panic!("Unsupported primitive type in add_load_primitive: {underlying_scalar:?}",),
         }
     }
 
@@ -200,7 +200,7 @@ impl CodeBuilder<'_> {
                     node,
                     comment,
                 )
-                    .ptr_reg
+                .ptr_reg
             }
             Place::Discard => {
                 panic!("can not compute effective address from unit")

@@ -4,11 +4,11 @@
  */
 use crate::memory::ExecutionMode;
 use crate::memory::Memory;
-use crate::{get_reg, i16_from_u8s, set_reg, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, set_reg};
 use std::num::ParseIntError;
 use std::{mem::size_of, ptr, slice};
 use swamp_vm_isa::{
-    StringIterator, VecHeader, MAX_STRING_LEN, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET,
+    MAX_STRING_LEN, StringIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VecHeader,
 };
 
 impl Vm {
@@ -61,7 +61,6 @@ impl Vm {
         unsafe {
             let bytes = slice::from_raw_parts(runes_ptr, byte_count as usize);
 
-
             if byte_count > 0 {
                 let s = std::str::from_utf8(bytes).unwrap_or("INVALID_UTF8");
                 #[cfg(feature = "debug_vm")]
@@ -77,7 +76,8 @@ impl Vm {
 
     pub fn verify_string(&mut self, raw_bytes: &[u8]) {
         if self.debug_operations_enabled {
-            let hex: String = raw_bytes.iter()
+            let hex: String = raw_bytes
+                .iter()
                 .map(|b| format!("{:02X}", b))
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -91,7 +91,8 @@ impl Vm {
 
     pub fn verify_string_without_mut(&self, raw_bytes: &[u8]) {
         if self.debug_operations_enabled {
-            let hex: String = raw_bytes.iter()
+            let hex: String = raw_bytes
+                .iter()
                 .map(|b| format!("{:02X}", b))
                 .collect::<Vec<_>>()
                 .join(" ");
@@ -102,7 +103,6 @@ impl Vm {
         }
     }
 
-
     pub fn execute_string_from_bytes(&mut self, target_string_view_reg: u8, bytes_vec_reg: u8) {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
@@ -110,40 +110,49 @@ impl Vm {
         }
         let bytes_header_addr = get_reg!(self, bytes_vec_reg);
         let bytes_header =
-            self.memory()
-                .get_heap_const_ptr(bytes_header_addr as usize) as *const VecHeader;
+            self.memory().get_heap_const_ptr(bytes_header_addr as usize) as *const VecHeader;
 
         let raw_bytes = unsafe {
-            slice::from_raw_parts(self.memory.get_heap_const_ptr(bytes_header_addr as usize + VEC_HEADER_PAYLOAD_OFFSET.0 as usize), (*bytes_header).element_count as usize)
+            slice::from_raw_parts(
+                self.memory.get_heap_const_ptr(
+                    bytes_header_addr as usize + VEC_HEADER_PAYLOAD_OFFSET.0 as usize,
+                ),
+                (*bytes_header).element_count as usize,
+            )
         };
 
         #[cfg(feature = "debug_vm")]
         self.verify_string(raw_bytes);
-
 
         let converted_string_result = unsafe { str::from_utf8(&*raw_bytes) };
         match converted_string_result {
             Ok(converted_string) => {
                 self.create_string(target_string_view_reg, converted_string);
             }
-            Err(_) => {
-                self.internal_trap(TrapCode::InvalidUtf8Sequence)
-            }
+            Err(_) => self.internal_trap(TrapCode::InvalidUtf8Sequence),
         }
     }
 
-    pub fn execute_string_storage_from_bytes(&mut self, target_string_storage_reg: u8, bytes_vec_reg: u8) {
+    pub fn execute_string_storage_from_bytes(
+        &mut self,
+        target_string_storage_reg: u8,
+        bytes_vec_reg: u8,
+    ) {
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             eprintln!("=== STRING STORAGE FROM BYTES ===");
         }
         let bytes_header_addr = get_reg!(self, bytes_vec_reg);
         let bytes_header =
-            self.memory()
-                .get_heap_const_ptr(bytes_header_addr as usize) as *const VecHeader;
+            self.memory().get_heap_const_ptr(bytes_header_addr as usize) as *const VecHeader;
 
         let raw_bytes = unsafe {
-            slice::from_raw_parts(self.memory.get_heap_const_ptr(bytes_header_addr as usize + VEC_HEADER_PAYLOAD_OFFSET.0 as usize), (*bytes_header).element_count as usize)
+            slice::from_raw_parts(
+                self.memory.get_heap_const_ptr(
+                    bytes_header_addr as usize + VEC_HEADER_PAYLOAD_OFFSET.0 as usize,
+                ),
+                (*bytes_header).element_count as usize,
+            )
         };
 
         #[cfg(feature = "debug_vm")]
@@ -155,9 +164,7 @@ impl Vm {
             Ok(_converted_string) => {
                 self.execute_vec_copy(target_string_storage_reg, bytes_vec_reg);
             }
-            Err(_) => {
-                self.internal_trap(TrapCode::InvalidUtf8Sequence)
-            }
+            Err(_) => self.internal_trap(TrapCode::InvalidUtf8Sequence),
         }
     }
 

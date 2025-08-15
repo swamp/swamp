@@ -4,10 +4,10 @@
  */
 use crate::memory::Memory;
 use crate::set_reg;
-use crate::{get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s, TrapCode, Vm};
+use crate::{TrapCode, Vm, get_reg, i16_from_u8s, u16_from_u8s, u32_from_u8s};
 use std::ptr;
 use swamp_vm_isa::{
-    VecHeader, VecIterator, VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE,
+    VEC_HEADER_MAGIC_CODE, VEC_HEADER_PAYLOAD_OFFSET, VEC_HEADER_SIZE, VecHeader, VecIterator,
 };
 
 impl Vm {

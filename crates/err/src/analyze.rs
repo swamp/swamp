@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::semantic::build_semantic_error;
-use crate::{build_and_print, Builder, Report};
+use crate::{Builder, Report, build_and_print};
 use eira::Kind;
 use source_map_cache::SourceMap;
 use std::path::Path;
@@ -38,7 +38,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             "function definition has too many parameters",
             span,
         )
-            .with_note(&format!("encountered {encountered} allowed {allowed}")),
+        .with_note(&format!("encountered {encountered} allowed {allowed}")),
         ErrorKind::NeedStorage => {
             Report::build(Kind::Error, 23, "expression needs storage (lvalue)", span).with_note("")
         }
@@ -209,7 +209,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             "invalid operator after optional chaining (?)",
             span,
         )
-            .with_note("only field access, method calls, or subscripts are allowed after ?"),
+        .with_note("only field access, method calls, or subscripts are allowed after ?"),
         ErrorKind::SelfNotCorrectType => {
             Report::build(Kind::Error, 9901, "self is of wrong type", span)
         }
@@ -245,7 +245,7 @@ pub fn build_analyzer_error(err: &Error) -> Builder<usize> {
             "variable type must be at least storage or string view (ephemeral)",
             span,
         )
-            .with_note(&format!("encountered_type: {encountered_type}")),
+        .with_note(&format!("encountered_type: {encountered_type}")),
         ErrorKind::ArrayIndexMustBeInt(_) => {
             Report::build(Kind::Error, 47, "array index must be int", span)
         }

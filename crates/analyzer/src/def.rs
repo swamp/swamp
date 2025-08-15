@@ -2,14 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::Analyzer;
 use crate::to_string::{
-    internal_generate_to_pretty_string_function_for_type, internal_generate_to_pretty_string_parameterless_function_for_type,
+    ExpressionGenerator, internal_generate_to_pretty_string_function_for_type,
+    internal_generate_to_pretty_string_parameterless_function_for_type,
     internal_generate_to_short_string_function_for_type,
     internal_generate_to_string_function_for_type,
-    ExpressionGenerator,
 };
 use crate::types::TypeAnalyzeContext;
-use crate::Analyzer;
 use seq_map::SeqMap;
 use std::rc::Rc;
 use swamp_ast::Node;
@@ -231,7 +231,6 @@ impl Analyzer<'_> {
                         _ => analyzed_type,
                     };
 
-
                     if !final_type.is_storage() {
                         self.add_err(ErrorKind::NeedStorage, &variant_name_node);
                     }
@@ -252,7 +251,6 @@ impl Analyzer<'_> {
                     } else {
                         self.types().tuple(vec)
                     };
-
 
                     if !tuple_type.is_storage() {
                         self.add_err(ErrorKind::NeedStorage, &variant_name_node);
@@ -1021,11 +1019,11 @@ impl Analyzer<'_> {
             // Check if we already have the functions to avoid infinite recursion
             if !self.shared.state.associated_impls.is_prepared(ty)
                 || self
-                .shared
-                .state
-                .associated_impls
-                .get_internal_member_function(ty, "string")
-                .is_none()
+                    .shared
+                    .state
+                    .associated_impls
+                    .get_internal_member_function(ty, "string")
+                    .is_none()
             {
                 self.add_default_functions(ty, node);
             }

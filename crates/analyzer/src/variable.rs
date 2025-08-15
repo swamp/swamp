@@ -5,8 +5,8 @@
 use crate::Analyzer;
 use source_map_node::Node;
 use std::rc::Rc;
-use swamp_semantic::err::ErrorKind;
 use swamp_semantic::ScopeInfo;
+use swamp_semantic::err::ErrorKind;
 use swamp_semantic::{
     ArgumentExpression, BlockScopeMode, Expression, ExpressionKind, Variable, VariableRef,
     VariableType,
@@ -88,7 +88,6 @@ impl Analyzer<'_> {
         );
     }
 
-
     pub(crate) fn create_local_variable(
         &mut self,
         variable: &swamp_ast::Node,
@@ -113,7 +112,6 @@ impl Analyzer<'_> {
             variable_type_ref,
         )
     }
-
 
     pub(crate) fn create_local_variable_parameter_like(
         &mut self,
@@ -198,7 +196,6 @@ impl Analyzer<'_> {
         variable_ref
     }
 
-
     pub fn reserve_slot(&mut self, node: &Node) -> Option<VariableSlot> {
         let Some(virtual_register) = allocate_next_register(&mut self.scope) else {
             self.add_err_resolved(ErrorKind::OutOfVirtualRegisters, node);
@@ -215,8 +212,12 @@ impl Analyzer<'_> {
         })
     }
 
-
-    pub fn create_local_variable_with_reserved_slot(&mut self, slot: VariableSlot, ast_var: swamp_ast::Variable, variable_type_ref: &TypeRef) -> (VariableRef, String) {
+    pub fn create_local_variable_with_reserved_slot(
+        &mut self,
+        slot: VariableSlot,
+        ast_var: swamp_ast::Variable,
+        variable_type_ref: &TypeRef,
+    ) -> (VariableRef, String) {
         let variable = self.to_node(&ast_var.name);
         let variable_str = self.get_text(&ast_var.name).to_string();
         let is_mutable = if let Some(ast_node) = ast_var.is_mutable {
@@ -240,9 +241,7 @@ impl Analyzer<'_> {
             },
         );
 
-        let variables_len = self.scope
-            .total_scopes
-            .all_variables.len();
+        let variables_len = self.scope.total_scopes.all_variables.len();
 
         let resolved_variable = Variable {
             symbol_id,
@@ -261,16 +260,25 @@ impl Analyzer<'_> {
         let variable_ref = Rc::new(resolved_variable);
 
         if should_insert_in_scope {
-            self
-                .scope.active_scope.block_scope_stack.get_mut(scope_index).unwrap().lookup.insert(variable_str.clone(), variable_ref.clone()).expect("should work");
+            self.scope
+                .active_scope
+                .block_scope_stack
+                .get_mut(scope_index)
+                .unwrap()
+                .lookup
+                .insert(variable_str.clone(), variable_ref.clone())
+                .expect("should work");
         }
 
         &mut self
             .scope
-            .active_scope.block_scope_stack.get_mut(scope_index).unwrap().variables
+            .active_scope
+            .block_scope_stack
+            .get_mut(scope_index)
+            .unwrap()
+            .variables
             .insert(slot.unique_id_in_function, variable_ref.clone())
             .expect("should have checked earlier for variable");
-
 
         self.scope
             .total_scopes
@@ -458,16 +466,13 @@ impl Analyzer<'_> {
                     return self.create_err(ErrorKind::VariableIsNotMutable, &ast_variable.name);
                 }
 
-                if matches!(&*expression_type.kind,        TypeKind::StringView { .. }) {
+                if matches!(&*expression_type.kind, TypeKind::StringView { .. }) {
                     return self.create_err(ErrorKind::CanNotBeBorrowed, &ast_variable.name);
                 }
 
                 // Check if the type is a scalar/primitive type
                 let is_scalar = match &*expression_type.kind {
-                    TypeKind::Int
-                    | TypeKind::Float
-                    | TypeKind::Bool
-                    => true,
+                    TypeKind::Int | TypeKind::Float | TypeKind::Bool => true,
                     _ => false,
                 };
 

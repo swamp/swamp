@@ -2,9 +2,9 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::FlagState;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::FlagState;
 use source_map_node::Node;
 use swamp_semantic::{ArgumentExpression, ExternalFunctionDefinitionRef};
 use swamp_vm_types::types::{Place, TypedRegister};

@@ -91,7 +91,6 @@ impl Analyzer<'_> {
                 self.shared.state.types.string(),
             )),
 
-
             // String concatenation - allow any type on the right
             (
                 &BinaryOperatorKind::Add,
@@ -140,7 +139,6 @@ impl Analyzer<'_> {
                 },
                 self.shared.state.types.string(),
             )),
-
 
             // Comparison operators
             (

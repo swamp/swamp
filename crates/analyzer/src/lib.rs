@@ -23,7 +23,7 @@ use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
 use crate::types::TypeAnalyzeContext;
-use crate::variable::{allocate_next_register, VariableSlot, MAX_VIRTUAL_REGISTER};
+use crate::variable::{MAX_VIRTUAL_REGISTER, VariableSlot, allocate_next_register};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
@@ -620,11 +620,10 @@ impl<'a> Analyzer<'a> {
             let reduced_expected = found_expected_type;
             let reduced_encountered_type = encountered_type;
 
-
             if matches!(
-            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-            (TypeKind::StringView(_, _), TypeKind::StringStorage(..))
-         ) {
+                (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+                (TypeKind::StringView(_, _), TypeKind::StringStorage(..))
+            ) {
                 //Special case where a string view is "pointing" to a string storage
                 //We can not allow that since the string storage is mutable
                 //And can change and that will affect the supposedly independent string view
@@ -641,10 +640,13 @@ impl<'a> Analyzer<'a> {
             }
 
             if matches!(
-            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-            (TypeKind::StringView(_, _), TypeKind::VecStorage(..)) |
-                (TypeKind::StringView(_, _), TypeKind::DynamicLengthVecView(..))
-         ) {
+                (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+                (TypeKind::StringView(_, _), TypeKind::VecStorage(..))
+                    | (
+                        TypeKind::StringView(_, _),
+                        TypeKind::DynamicLengthVecView(..)
+                    )
+            ) {
                 //Special case where you want to convert a byte vector to a string
                 // this needs to do extra UTF8 checking as well as a copy
                 // so the string is not dependent on the vec view or storage (aliasing).
@@ -660,10 +662,13 @@ impl<'a> Analyzer<'a> {
             }
 
             if matches!(
-            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-            (TypeKind::StringStorage(..), TypeKind::VecStorage(..)) |
-                (TypeKind::StringStorage(..), TypeKind::DynamicLengthVecView(..))
-         ) {
+                (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+                (TypeKind::StringStorage(..), TypeKind::VecStorage(..))
+                    | (
+                        TypeKind::StringStorage(..),
+                        TypeKind::DynamicLengthVecView(..)
+                    )
+            ) {
                 //Special case where you want to convert a byte vector to a string
                 // this needs to do extra UTF8 checking as well as a copy
                 // so the string is not dependent on the vec view or storage (aliasing).
@@ -678,11 +683,10 @@ impl<'a> Analyzer<'a> {
                 );
             }
 
-
             if matches!(
-            (&*reduced_expected.kind, &*reduced_encountered_type.kind),
-            (TypeKind::StringStorage(..), TypeKind::StringView(..))
-         ) {
+                (&*reduced_expected.kind, &*reduced_encountered_type.kind),
+                (TypeKind::StringStorage(..), TypeKind::StringView(..))
+            ) {
                 //Special case where you want to convert a byte vector to a string
                 // this needs to do extra UTF8 checking as well as a copy
                 // so the string is not dependent on the vec view or storage (aliasing).
@@ -698,7 +702,6 @@ impl<'a> Analyzer<'a> {
             }
 
             //|  (TypeKind::StringStorage(..), TypeKind::StringView(_,_))
-
 
             if self
                 .shared
@@ -1108,7 +1111,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                        .kind
+                    .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1142,14 +1145,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                    .kind
+                .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-                .kind
+            .kind
         }
     }
 
@@ -1554,7 +1557,8 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
+            } else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2570,8 +2574,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                    .expect_immutable()
-                    .unwrap()
+                .expect_immutable()
+                .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2812,7 +2816,8 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
+    }
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -2877,13 +2882,8 @@ impl<'a> Analyzer<'a> {
             VariableResolution::ReservedSlot(variable_slot, variable.clone(), None)
         };
 
-        self.common_variable_util(
-            resolution,
-            &variable.name,
-            source_expression,
-        )
+        self.common_variable_util(resolution, &variable.name, source_expression)
     }
-
 
     pub fn common_variable_util(
         &mut self,
@@ -2894,22 +2894,18 @@ impl<'a> Analyzer<'a> {
         let node = self.to_node(ast_node);
 
         let maybe_annotated_type = match &variable_resolution {
-            VariableResolution::ExistingVariable(existing_var) => { Some(existing_var.resolved_type.clone()) }
-            VariableResolution::ReservedSlot(_, _, maybe_annotated) => { maybe_annotated.clone() }
+            VariableResolution::ExistingVariable(existing_var) => {
+                Some(existing_var.resolved_type.clone())
+            }
+            VariableResolution::ReservedSlot(_, _, maybe_annotated) => maybe_annotated.clone(),
         };
 
-        let (final_variable_type, final_source_expression) = self.resolve_variable_expression(
-            maybe_annotated_type.clone(),
-            source_expression,
-        );
+        let (final_variable_type, final_source_expression) =
+            self.resolve_variable_expression(maybe_annotated_type.clone(), source_expression);
 
         let variable_type = match &variable_resolution {
-            VariableResolution::ExistingVariable(existing) => {
-                existing.variable_type.clone()
-            }
-            VariableResolution::ReservedSlot(_, _, _) => {
-                VariableType::Local
-            }
+            VariableResolution::ExistingVariable(existing) => existing.variable_type.clone(),
+            VariableResolution::ReservedSlot(_, _, _) => VariableType::Local,
         };
 
         let debug_text = self.get_text(ast_node);
@@ -2961,8 +2957,15 @@ impl<'a> Analyzer<'a> {
                     final_source_expression.ty.clone()
                 };
 
-                let (found_variable, _some_string) = self.create_local_variable_with_reserved_slot(reserved_slot, ast_variable, &final_type);
-                ExpressionKind::VariableDefinition(found_variable, Box::from(final_source_expression))
+                let (found_variable, _some_string) = self.create_local_variable_with_reserved_slot(
+                    reserved_slot,
+                    ast_variable,
+                    &final_type,
+                );
+                ExpressionKind::VariableDefinition(
+                    found_variable,
+                    Box::from(final_source_expression),
+                )
             }
         };
 
@@ -2993,7 +2996,6 @@ impl<'a> Analyzer<'a> {
         };
 
         // Check special conversion
-
 
         (determined_variable_type.clone(), source_expr)
     }
@@ -4893,8 +4895,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                    .types()
-                    .compatible_with(initializer_value_type, storage_value)
+                        .types()
+                        .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }
@@ -4982,7 +4984,6 @@ impl<'a> Analyzer<'a> {
             );
             return coerced;
         }
-
 
         error!(?expected_type, ?encountered_type, "incompatible");
         self.create_err(

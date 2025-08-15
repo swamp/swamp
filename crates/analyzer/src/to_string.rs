@@ -1704,7 +1704,7 @@ pub fn internal_generate_to_string_function_for_type(
         } else {
             "string"
         }
-            .to_string(),
+        .to_string(),
         associated_with_type: Option::from(ty.clone()),
         defined_in_module_path: module_path.to_vec(),
         signature: Signature {

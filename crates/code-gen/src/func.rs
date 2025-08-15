@@ -9,19 +9,18 @@ use crate::reg_pool::HwmTempRegisterPool;
 use crate::state::GenOptions;
 use crate::top_state::TopLevelGenState;
 use crate::{
-    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, RepresentationOfRegisters,
-    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
+    FunctionInData, FunctionIp, FunctionIpKind, GenFunctionInfo, MAX_REGISTER_INDEX_FOR_PARAMETERS,
+    RepresentationOfRegisters, SpilledRegisterRegion,
 };
 use source_map_cache::SourceMapWrapper;
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{formal_function_name, InternalFunctionDefinitionRef, InternalMainExpression};
+use swamp_semantic::{InternalFunctionDefinitionRef, InternalMainExpression, formal_function_name};
 use swamp_vm_debug_info::FunctionDebugInfo;
 use swamp_vm_instr_build::InstructionBuilder;
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
 use swamp_vm_types::types::{
-    FunctionInfo, FunctionInfoKind, Place, TypedRegister, VariableRegister, VmType,
-    VmTypeOrigin,
+    FunctionInfo, FunctionInfoKind, Place, TypedRegister, VariableRegister, VmType, VmTypeOrigin,
 };
 use swamp_vm_types::{InstructionPositionOffset, InstructionRange, MemoryLocation, PatchPosition};
 
