@@ -57,6 +57,11 @@ impl Vm {
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header_ptr = self.get_map_header_mut(map_header_addr);
+        unsafe {
+            if (*map_header_ptr).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+        }
         let key_source_address = get_reg!(self, key_source) as usize;
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
@@ -137,6 +142,11 @@ impl Vm {
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header = self.get_map_header_mut(map_header_addr);
+        unsafe {
+            if (*map_header).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+        }
 
         let key_source_address = get_reg!(self, key_source_ptr_reg) as usize;
 
@@ -174,6 +184,11 @@ impl Vm {
     ) {
         let map_header_addr = get_reg!(self, self_const_map_header_reg) as usize;
         let map_header_ptr = self.get_map_header_mut(map_header_addr as u32);
+        unsafe {
+            if (*map_header_ptr).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+        }
         let key_source_address = get_reg!(self, key_source_reg) as usize;
 
         unsafe {
@@ -200,6 +215,15 @@ impl Vm {
         let source_map_header_addr = get_reg!(self, source_map_header_reg);
         let source_map_header = self.get_map_header_const(source_map_header_addr);
 
+        unsafe {
+            if (*target_map_header).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+            if (*source_map_header).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+        }
+
         let could_overwrite = unsafe {
             hashmap_mem::overwrite(target_map_header as *mut u8, source_map_header as *const u8)
         };
@@ -215,6 +239,12 @@ impl Vm {
     ) {
         let map_header_addr = get_reg!(self, self_map_header_reg);
         let map_header = self.get_map_header_mut(map_header_addr);
+        unsafe {
+            if (*map_header).padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
+        }
+
         let key_source_address = get_reg!(self, key_source_reg) as usize;
 
         unsafe {
@@ -285,23 +315,25 @@ impl Vm {
     ) {
         let map_header_addr = get_reg!(self, map_header_reg);
 
+        let map_header = Self::read_map_header_from_heap(map_header_addr, &self.memory);
+        if map_header.padding_and_secret_code != hashmap_mem::SECRET_CODE {
+            return self.internal_trap(TrapCode::MemoryCorruption);
+        }
+
         #[cfg(feature = "debug_vm")]
         if self.debug_operations_enabled {
             let iter_addr = get_reg!(self, target_map_iterator_header_reg);
-            let map_header = Self::read_map_header_from_heap(map_header_addr, &self.memory);
-            debug_assert_eq!(
-                map_header.padding_and_secret_code,
-                hashmap_mem::SECRET_CODE,
-                "secret code is not the same"
-            );
+
             eprintln!(
-                "map_iter_init: iter_addr: {iter_addr:04X} map_header_addr:{map_header_addr:04X} key_size:{}, value_offset:{}, value_size:{} bucket_size: {}",
+                "map_iter_init: iter_addr: {iter_addr:X} map_header_addr:{map_header_addr:X} key_size:{}, value_offset:{}, value_size:{} bucket_size:{} capacity:{}",
                 map_header.key_size,
                 map_header.value_offset,
                 map_header.value_size,
-                (map_header.bucket_size)
+                (map_header.bucket_size),
+                map_header.capacity,
             );
         }
+
         let map_iterator = MapIterator {
             map_header_frame_offset: map_header_addr,
             index: 0,
@@ -333,6 +365,7 @@ impl Vm {
             let map_header_addr = (*map_iterator).map_header_frame_offset;
             let map_header_ptr =
                 self.memory.get_heap_const_ptr(map_header_addr as usize) as *const MapHeader;
+
             let map_header = &*map_header_ptr;
             if map_header.padding_and_secret_code != hashmap_mem::SECRET_CODE {
                 return self.internal_trap(TrapCode::MemoryCorruption);
@@ -344,7 +377,7 @@ impl Vm {
                 let iter_addr = get_reg!(self, map_iterator_header_reg);
                 let index = (*map_iterator).index;
                 eprintln!(
-                    "map_iter_next: iter_addr: {iter_addr:04X} addr:{map_header_addr:04X} index:{index} len: {}, capacity: {}",
+                    "map_iter_next_pair: iter_addr: {iter_addr:X} addr:{map_header_addr:X} index:{index} len: {}, capacity: {}",
                     map_header.element_count, map_header.capacity
                 );
             }
@@ -392,13 +425,16 @@ impl Vm {
             let map_header_ptr =
                 self.memory.get_heap_const_ptr(map_header_addr as usize) as *const MapHeader;
             let map_header = &*map_header_ptr;
+            if map_header.padding_and_secret_code != hashmap_mem::SECRET_CODE {
+                return self.internal_trap(TrapCode::MemoryCorruption);
+            }
 
             #[cfg(feature = "debug_vm")]
             if self.debug_operations_enabled {
                 let iter_addr = get_reg!(self, map_iterator_header_reg);
                 let index = (*map_iterator).index;
                 eprintln!(
-                    "map_iter_next: iter_addr: {iter_addr:04X} addr:{map_header_addr:04X} index:{index} len: {}, capacity: {}",
+                    "map_iter_next: iter_addr: {iter_addr:X} addr:{map_header_addr:X} index:{index} len: {}, capacity: {}",
                     map_header.element_count, map_header.capacity
                 );
             }
@@ -407,6 +443,7 @@ impl Vm {
 
             let (_key_ptr, value_ptr, found_index) =
                 hashmap_mem::find_next_valid_entry(map_header_ptr as *mut u8, index as u16);
+
             if !value_ptr.is_null() {
                 let value_offset = self.memory.get_heap_offset(value_ptr);
 
