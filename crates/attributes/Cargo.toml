@@ -1,6 +1,6 @@
 [package]
 name = "swamp-attributes"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2024"
 description = "small crate that handles attributes for the Swamp Language"
 repository = "https://github.com/swamp/swamp"

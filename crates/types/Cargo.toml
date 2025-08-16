@@ -1,13 +1,13 @@
 [package]
 name = "swamp-types"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "types used in Swamp"
 
 [dependencies]
-swamp-symbol = { path = "../symbol", version = "0.2.24" }
+swamp-symbol = { path = "../symbol", version = "0.2.25" }
 source-map-node = "0.0.1"
 seq-map = "0.0.14"
 seq-fmt = "0.0.1"

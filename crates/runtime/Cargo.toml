@@ -1,6 +1,6 @@
 [package]
 name = "swamp-runtime"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
@@ -9,26 +9,26 @@ description = "runtime for swamp"
 [dependencies]
 
 # Semantic and Analyzer
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.24" }
-swamp-semantic = { path = "../semantic", version = "0.2.24" }
-swamp-types = { path = "../types", version = "0.2.24" }
-swamp-analyzer = { path = "../analyzer", version = "0.2.24" }
-swamp-vm-layout = { path = "../vm-layout", version = "0.2.24" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.25" }
+swamp-semantic = { path = "../semantic", version = "0.2.25" }
+swamp-types = { path = "../types", version = "0.2.25" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.25" }
+swamp-vm-layout = { path = "../vm-layout", version = "0.2.25" }
 
 # Core
-swamp-std = { path = "../std", version = "0.2.24" }
+swamp-std = { path = "../std", version = "0.2.25" }
 
 # Compile orchestrator
-swamp-compile = { path = "../compile", version = "0.2.24" }
+swamp-compile = { path = "../compile", version = "0.2.25" }
 
 # Runtime
-swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.24" }
-swamp-code-gen = { path = "../code-gen", version = "0.2.24" }
-swamp-vm = { path = "../vm", version = "0.2.24" }
-swamp-vm-types = { path = "../vm-types", version = "0.2.24" }
-swamp-vm-isa = { path = "../vm-isa", version = "0.2.24" }
-swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.24" }
-swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.24" }
+swamp-code-gen-program = { path = "../code-gen-program", version = "0.2.25" }
+swamp-code-gen = { path = "../code-gen", version = "0.2.25" }
+swamp-vm = { path = "../vm", version = "0.2.25" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.25" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.25" }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.25" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.25" }
 
 # Source Map
 source-map-cache = "0.0.6"

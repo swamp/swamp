@@ -1,12 +1,12 @@
 [package]
 name = "swamp-test"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2024"
 description = "swamp test runner tool"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-test-runner = { path = "../test-runner", version = "0.2.24" }
-swamp-yini = { path = "../yini", version = "0.2.24" }
+swamp-test-runner = { path = "../test-runner", version = "0.2.25" }
+swamp-yini = { path = "../yini", version = "0.2.25" }
 pico-args = "0.5.0"

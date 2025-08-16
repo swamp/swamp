@@ -1,6 +1,6 @@
 [package]
 name = "swamp-vm-types"
-version = "0.2.24"
+version = "0.2.25"
 edition = "2024"
 license = "MIT"
 description = "Low-level types for memory layout, addresses, and instructions used by the Swamp Virtual Machine (VM)."
@@ -14,4 +14,4 @@ seq-fmt = "0.0.1"
 tinter = "0.1.0"
 
 fxhash = "0.2.1"
-swamp-vm-isa = { path = "../vm-isa" , version = "0.2.24" }
+swamp-vm-isa = { path = "../vm-isa" , version = "0.2.25" }
