@@ -10,17 +10,17 @@ use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    err, ArgumentAndTempScope, RepresentationOfRegisters,
-    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
+    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
+    SpilledRegisterRegion, err,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
-use swamp_types::prelude::Signature;
+use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
 use swamp_types::TypeKind;
+use swamp_types::prelude::Signature;
 use swamp_vm_isa::REG_ON_FRAME_SIZE;
-use swamp_vm_types::types::{pointer_type, BasicTypeRef, Place, TypedRegister, VmType};
 use swamp_vm_types::FrameMemoryRegion;
+use swamp_vm_types::types::{BasicTypeRef, Place, TypedRegister, VmType, pointer_type};
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,
@@ -99,7 +99,6 @@ impl CodeBuilder<'_> {
             scratch_registers: temp_register_region,
         }
     }
-
 
     fn emit_single_argument(
         &mut self,
@@ -196,7 +195,6 @@ impl CodeBuilder<'_> {
         // Step 1: Spill live registers before we start using ABI registers
         let spill_scope = self.spill_required_registers(node, "spill before emit arguments");
 
-
         assert!(
             signature.parameters.len() <= MAX_REGISTER_INDEX_FOR_PARAMETERS.into(),
             "signature is wrong {signature:?}"
@@ -220,10 +218,7 @@ impl CodeBuilder<'_> {
 
                 let temp_reg = self.temp_registers.allocate(
                     VmType::new_contained_in_register(pointer_type()),
-                    &format!(
-                        "temporary argument for r0 '{}'",
-                        return_pointer_reg.comment
-                    ),
+                    &format!("temporary argument for r0 '{}'", return_pointer_reg.comment),
                 );
 
                 self.builder.add_mov_reg(
@@ -233,7 +228,8 @@ impl CodeBuilder<'_> {
                     "stash sret (dest addr) into temp",
                 );
 
-                let target_canonical_return_register = TypedRegister::new_vm_type(0, return_pointer_reg.ty);
+                let target_canonical_return_register =
+                    TypedRegister::new_vm_type(0, return_pointer_reg.ty);
                 let copy_argument = CopyArgument {
                     canonical_target: target_canonical_return_register.clone(),
                     source_temporary: temp_reg.register.clone(),
@@ -321,9 +317,7 @@ impl CodeBuilder<'_> {
                 &return_reg_copy_argument.canonical_target,
                 &return_reg_copy_argument.source_temporary,
                 node,
-                &format!(
-                    "copy r0 in place before arguments",
-                ),
+                &format!("copy r0 in place before arguments",),
             );
         }
 
@@ -339,7 +333,6 @@ impl CodeBuilder<'_> {
                 ),
             );
         }
-
 
         EmitArgumentInfo {
             argument_and_temp_scope: spill_scope,
@@ -558,7 +551,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})", );
+        let call_comment = &format!("calling `{function_name}` ({comment})",);
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
