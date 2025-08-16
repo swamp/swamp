@@ -15,10 +15,7 @@ use std::str::FromStr;
 use std::thread::sleep;
 use std::time::Duration;
 use swamp_runtime::prelude::{CodeGenOptions, RunMode};
-use swamp_runtime::{
-    CompileAndCodeGenOptions, CompileAndVmResult, CompileOptions, RunOptions,
-    StandardOnlyHostCallbacks, compile_codegen_and_create_vm,
-};
+use swamp_runtime::{compile_codegen_and_create_vm, CompileAndCodeGenOptions, CompileAndVmResult, CompileCodeGenAndVmOptions, CompileOptions, RunOptions, StandardOnlyHostCallbacks, VmOptions};
 use swamp_vm::VmState;
 use time_dilation::ScopedTimer;
 use tracing::error;
@@ -243,8 +240,13 @@ pub fn run_tests(
         run_mode: RunMode::Deployed,
     };
 
+    let compile_codegen_and_vm_options = CompileCodeGenAndVmOptions {
+        vm_options: VmOptions { stack_size: 2 * 1024 * 1024, heap_size: 32 * 1024 },
+        codegen: compile_and_code_gen_options,
+    };
+
     let internal_result =
-        compile_codegen_and_create_vm(source_map, crate_main_path, &compile_and_code_gen_options)
+        compile_codegen_and_create_vm(source_map, crate_main_path, &compile_codegen_and_vm_options)
             .unwrap();
 
     let CompileAndVmResult::CompileAndVm(mut result) = internal_result else {
@@ -535,10 +537,10 @@ pub fn run_tests(
         println!("  ✅ Passed (Expected Trap): {expected_trap_pass_count}");
 
         if total_failed_count > 0 {
-            println!("  ❌ **TOTAL FAILED:** {total_failed_count}",);
+            println!("  ❌ **TOTAL FAILED:** {total_failed_count}", );
         }
 
-        println!("  Total Tests Run: {total_tests_run}",);
+        println!("  Total Tests Run: {total_tests_run}", );
 
         // ---
         // ## Failing Test Details

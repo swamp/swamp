@@ -64,7 +64,7 @@ pub fn read_yini_from_str(ini_content: &str) -> Option<SwampIni> {
     let parser = yini::Parser::new(ini_content).parse();
     let mut ini = SwampIni::new();
 
-    if let Some(members) = parser.get("members")?.as_array() {
+    if let Some(members) = parser.get("members").and_then(|x| x.as_array()) {
         debug!("found members");
 
         let mut vec = Vec::new();
@@ -76,7 +76,7 @@ pub fn read_yini_from_str(ini_content: &str) -> Option<SwampIni> {
         ini.members = vec;
     }
 
-    if let Some(project_type) = parser.get("type")?.as_str() {
+    if let Some(project_type) = parser.get("type").and_then(|x| x.as_str()) {
         ini.ty = if project_type == "lib" { ProjectType::Library } else { ProjectType::Executable };
     }
 
