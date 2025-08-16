@@ -7,3 +7,4 @@ output.ansi
 *.trace
 .vscode
 appendonly.aof
+dump.rdb
