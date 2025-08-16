@@ -8,7 +8,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_test_runner::prelude::create_default_source_map_crate_only;
-use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
+use swamp_test_runner::{init_logger, run_tests, StepBehavior, TestRunOptions};
+use swamp_yini::{read_yini_cwd_with_defaults, ProjectType};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(
@@ -97,6 +98,18 @@ fn main() -> ExitCode {
         }
     };
 
+    let ini = read_yini_cwd_with_defaults();
+
+
+    let crate_module_root = if let Some(found_module) = module {
+        found_module
+    } else {
+        match ini.ty {
+            ProjectType::Library => "lib".to_string(),
+            ProjectType::Executable => "main".to_string(),
+        }
+    };
+
     let show_debug = args.contains(["-d", "--debug"]);
     let show_assembly = args.contains(["-a", "--show-assembly"]);
     let show_semantic = args.contains(["-s", "--show-semantic"]);
@@ -144,7 +157,7 @@ fn main() -> ExitCode {
             debug_memory_enabled: verify_memory,
         },
         &filter_pattern.unwrap_or_default(),
-        &module.unwrap_or_else(|| "lib".to_string()),
+        &crate_module_root,
     );
 
     if !test_result.succeeded() {

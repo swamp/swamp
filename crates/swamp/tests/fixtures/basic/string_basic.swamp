@@ -1,5 +1,3 @@
-
-
 #[test]
 fn empty_literal_view() {
     a = ""
@@ -27,20 +25,19 @@ const CONSTANT_CARDS = CardLib {
 
 
 #[test]
+fn optional_const_in_struct() {
+	assert(CONSTANT_CARDS.description, "card must be initialized")
+	print('cards: {CONSTANT_CARDS.description}')
+
+}
+
+
+#[test]
 fn optional_in_struct() {
 	cards = CardLib {
 		description: "hello"
 	}
 }
-
-
-#[test]
-fn optional_const_in_struct() {
-	assert(CONSTANT_CARDS.description, "card must be initialized")
-	print('cards: {CONSTANT_CARDS.description}')
-	
-}
-
 
 
 #[test]
@@ -311,7 +308,3 @@ fn allowed_to_borrow_string() {
 	modify_string(&s)
 	assert(s == "something else", "was overwritten")
 }
-
-
-
-
