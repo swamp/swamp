@@ -102,7 +102,8 @@ impl TopLevelGenState {
             let (start_ip, end_ip, function_info) =
                 self.emit_function_preamble(&in_data, source_map_wrapper, true);
 
-            let return_type_basic_type = self.codegen_state.layout_cache.layout(&in_data.return_type);
+            let return_type_basic_type =
+                self.codegen_state.layout_cache.layout(&in_data.return_type);
 
             let constant_info = ConstantInfo {
                 ip_range: InstructionRange {

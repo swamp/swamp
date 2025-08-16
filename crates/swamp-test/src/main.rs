@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::{env, io};
 use swamp_test_runner::prelude::create_default_source_map_crate_only;
-use swamp_test_runner::{init_logger, run_tests, StepBehavior, TestRunOptions};
-use swamp_yini::{read_yini_cwd_with_defaults, ProjectType};
+use swamp_test_runner::{StepBehavior, TestRunOptions, init_logger, run_tests};
+use swamp_yini::{ProjectType, read_yini_cwd_with_defaults};
 
 fn print_usage<W: Write>(mut out: W) {
     let _ = write!(
@@ -99,7 +99,6 @@ fn main() -> ExitCode {
     };
 
     let ini = read_yini_cwd_with_defaults();
-
 
     let crate_module_root = if let Some(found_module) = module {
         found_module

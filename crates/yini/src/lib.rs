@@ -23,7 +23,10 @@ impl Default for SwampIni {
 impl SwampIni {
     #[must_use]
     pub const fn new() -> Self {
-        Self { members: vec![], ty: ProjectType::Executable }
+        Self {
+            members: vec![],
+            ty: ProjectType::Executable,
+        }
     }
 }
 
@@ -77,7 +80,11 @@ pub fn read_yini_from_str(ini_content: &str) -> Option<SwampIni> {
     }
 
     if let Some(project_type) = parser.get("type").and_then(|x| x.as_str()) {
-        ini.ty = if project_type == "lib" { ProjectType::Library } else { ProjectType::Executable };
+        ini.ty = if project_type == "lib" {
+            ProjectType::Library
+        } else {
+            ProjectType::Executable
+        };
     }
 
     Some(ini)

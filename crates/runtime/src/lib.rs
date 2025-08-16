@@ -14,9 +14,9 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use swamp_analyzer::Program;
 use swamp_code_gen::{ConstantInfo, GenFunctionInfo};
-use swamp_code_gen_program::{code_gen_program, CodeGenOptions};
+use swamp_code_gen_program::{CodeGenOptions, code_gen_program};
 pub use swamp_compile::CompileOptions;
-use swamp_dep_loader::{swamp_registry_path, RunMode};
+use swamp_dep_loader::{RunMode, swamp_registry_path};
 use swamp_semantic::{ConstantId, InternalFunctionDefinitionRef, InternalFunctionId};
 use swamp_std::pack::pack;
 use swamp_std::print::print_fn;
@@ -28,8 +28,8 @@ use swamp_vm_debug_info::{DebugInfo, DebugInfoForPc};
 use swamp_vm_disasm::{disasm_color, display_lines};
 use swamp_vm_isa::{BinaryInstruction, InstructionPosition};
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::BasicTypeKind;
 use swamp_vm_types::InstructionRange;
+use swamp_vm_types::types::BasicTypeKind;
 
 pub struct RunConstantsOptions {
     pub stderr_adapter: Option<Box<dyn FmtWrite>>,
@@ -58,7 +58,8 @@ pub fn run_constants_in_order(
         // do not reset heap, all allocations from heap should remain (for now)
         vm.reset_call_stack();
 
-        if constant.target_constant_memory.ty().is_scalar() {} else {
+        if constant.target_constant_memory.ty().is_scalar() {
+        } else {
             // set memory location into to r0
             vm.registers[0] = constant.target_constant_memory.addr().0;
         }
@@ -202,7 +203,7 @@ pub fn create_vm_with_standard_settings(
 ) -> Vm {
     let vm_setup = VmSetup {
         stack_memory_size: 1024 * 1024 * 1024, // 1 GiB
-        heap_memory_size: 512 * 1024,         // 512 KiB for transient heap allocation (strings)
+        heap_memory_size: 512 * 1024,          // 512 KiB for transient heap allocation (strings)
         constant_memory: prepared_constant_memory.to_vec(),
         debug_opcodes_enabled: false,
         debug_stats_enabled: false,
@@ -211,7 +212,6 @@ pub fn create_vm_with_standard_settings(
 
     Vm::new(instructions.to_vec(), vm_setup)
 }
-
 
 pub struct VmOptions {
     pub stack_size: usize,
@@ -517,7 +517,7 @@ pub fn run_function_with_debug(
             if use_color {
                 print!(
                     "{}",
-                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(), ))
+                    tinter::bright_black(&format!("fp:{:08X}, sp:{:08X} ", vm.fp(), vm.sp(),))
                 );
 
                 for reg in regs {
@@ -601,14 +601,12 @@ pub fn run_function_with_debug(
     }
 }
 
-
 pub struct CompileAndCodeGenOptions {
     pub compile_options: CompileOptions,
     pub code_gen_options: CodeGenOptions,
     pub skip_codegen: bool,
     pub run_mode: RunMode,
 }
-
 
 pub struct CompileCodeGenAndVmOptions {
     pub vm_options: VmOptions,
@@ -753,8 +751,11 @@ pub fn compile_codegen_and_create_vm(
     root_module: &[String],
     compile_and_code_gen_options: &CompileCodeGenAndVmOptions,
 ) -> Option<CompileAndVmResult> {
-    let compile_and_maybe_code_gen =
-        compile_and_code_gen(source_map, root_module, &compile_and_code_gen_options.codegen)?;
+    let compile_and_maybe_code_gen = compile_and_code_gen(
+        source_map,
+        root_module,
+        &compile_and_code_gen_options.codegen,
+    )?;
 
     if let Some(code_gen_result) = compile_and_maybe_code_gen.codegen {
         let vm = create_vm_with_options(
