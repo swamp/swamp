@@ -10,17 +10,17 @@ use crate::err::Error;
 use crate::reg_pool::RegisterPool;
 use crate::state::FunctionFixup;
 use crate::{
-    ArgumentAndTempScope, MAX_REGISTER_INDEX_FOR_PARAMETERS, RepresentationOfRegisters,
-    SpilledRegisterRegion, err,
+    err, ArgumentAndTempScope, RepresentationOfRegisters,
+    SpilledRegisterRegion, MAX_REGISTER_INDEX_FOR_PARAMETERS,
 };
 use source_map_node::Node;
 use std::collections::HashSet;
-use swamp_semantic::{ArgumentExpression, InternalFunctionDefinitionRef, pretty_module_name};
-use swamp_types::TypeKind;
+use swamp_semantic::{pretty_module_name, ArgumentExpression, InternalFunctionDefinitionRef};
 use swamp_types::prelude::Signature;
+use swamp_types::TypeKind;
 use swamp_vm_isa::REG_ON_FRAME_SIZE;
+use swamp_vm_types::types::{pointer_type, BasicTypeRef, Place, TypedRegister, VmType};
 use swamp_vm_types::FrameMemoryRegion;
-use swamp_vm_types::types::{BasicTypeRef, Place, TypedRegister, VmType};
 
 pub struct CopyArgument {
     pub canonical_target: TypedRegister,
@@ -100,27 +100,6 @@ impl CodeBuilder<'_> {
         }
     }
 
-    pub fn setup_return_pointer_reg(
-        &mut self,
-        output_destination: &Place,
-        return_basic_type: BasicTypeRef,
-        node: &Node,
-    ) {
-        let r0 = TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
-
-        let return_pointer_reg = self.emit_compute_effective_address_to_register(
-            output_destination,
-            node,
-            "r0: create an absolute pointer to r0 if needed",
-        );
-
-        self.builder.add_mov_reg(
-            &r0,
-            &return_pointer_reg,
-            node,
-            "r0: copy the return pointer into r0",
-        );
-    }
 
     fn emit_single_argument(
         &mut self,
@@ -203,7 +182,7 @@ impl CodeBuilder<'_> {
 
     pub(crate) fn emit_arguments(
         &mut self,
-        output_destination: &Place,
+        output_place: &Place,
         node: &Node,
         signature: &Signature,
         self_variable: Option<&TypedRegister>,
@@ -217,23 +196,6 @@ impl CodeBuilder<'_> {
         // Step 1: Spill live registers before we start using ABI registers
         let spill_scope = self.spill_required_registers(node, "spill before emit arguments");
 
-        // Step 2: Handle return value setup
-        if has_return_value {
-            let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
-
-            if return_basic_type.needs_hidden_pointer_as_return() {
-                // For aggregates: initialize the destination space first, then set up r0 as pointer to destination
-                self.setup_return_pointer_reg(output_destination, return_basic_type, node);
-            } else {
-                // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
-                let r0 =
-                    TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
-                copy_back_operations.push(MutableReturnReg {
-                    target_location_after_call: output_destination.clone(),
-                    parameter_reg: r0,
-                });
-            }
-        }
 
         assert!(
             signature.parameters.len() <= MAX_REGISTER_INDEX_FOR_PARAMETERS.into(),
@@ -243,6 +205,50 @@ impl CodeBuilder<'_> {
         // Step 3: Prepare argument registers and handle temporary register conflicts
         let mut temp_to_abi_copies = Vec::new();
         let mut argument_registers = RegisterPool::new(1, 6); // r1-r6 for arguments
+        let mut return_copy_arg: Option<CopyArgument> = None;
+        // Step 5: Handle return value setup
+        if has_return_value {
+            let return_basic_type = self.state.layout_cache.layout(&signature.return_type);
+
+            if return_basic_type.needs_hidden_pointer_as_return() {
+                // For aggregates: initialize the destination space first, then set up r0 as pointer to destination
+                let return_pointer_reg = self.emit_compute_effective_address_to_register(
+                    output_place,
+                    node,
+                    "r0: create an absolute pointer to r0 if needed",
+                );
+
+                let temp_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(pointer_type()),
+                    &format!(
+                        "temporary argument for r0 '{}'",
+                        return_pointer_reg.comment
+                    ),
+                );
+
+                self.builder.add_mov_reg(
+                    &temp_reg.register,
+                    &return_pointer_reg,
+                    node,
+                    "stash sret (dest addr) into temp",
+                );
+
+                let target_canonical_return_register = TypedRegister::new_vm_type(0, return_pointer_reg.ty);
+                let copy_argument = CopyArgument {
+                    canonical_target: target_canonical_return_register.clone(),
+                    source_temporary: temp_reg.register.clone(),
+                };
+                return_copy_arg = Some(copy_argument);
+            } else {
+                // For primitives: add r0 to copy-back list (function writes to r0, we copy to destination)
+                let r0 =
+                    TypedRegister::new_vm_type(0, VmType::new_unknown_placement(return_basic_type));
+                copy_back_operations.push(MutableReturnReg {
+                    target_location_after_call: output_place.clone(),
+                    parameter_reg: r0,
+                });
+            }
+        }
 
         for (index_in_signature, type_for_parameter) in signature.parameters.iter().enumerate() {
             let parameter_basic_type = self
@@ -310,6 +316,17 @@ impl CodeBuilder<'_> {
         }
 
         // Step 4: Copy from temporary registers to final ABI argument registers
+        if let Some(return_reg_copy_argument) = return_copy_arg {
+            self.builder.add_mov_reg(
+                &return_reg_copy_argument.canonical_target,
+                &return_reg_copy_argument.source_temporary,
+                node,
+                &format!(
+                    "copy r0 in place before arguments",
+                ),
+            );
+        }
+
         for (index, copy_argument) in temp_to_abi_copies.iter().enumerate() {
             let parameter_in_signature = &signature.parameters[index];
             self.builder.add_mov_reg(
@@ -322,6 +339,7 @@ impl CodeBuilder<'_> {
                 ),
             );
         }
+
 
         EmitArgumentInfo {
             argument_and_temp_scope: spill_scope,
@@ -540,7 +558,7 @@ impl CodeBuilder<'_> {
                 )
             },
         );
-        let call_comment = &format!("calling `{function_name}` ({comment})",);
+        let call_comment = &format!("calling `{function_name}` ({comment})", );
 
         let patch_position = self.builder.add_call_placeholder(node, call_comment);
         self.state.function_fixups.push(FunctionFixup {
