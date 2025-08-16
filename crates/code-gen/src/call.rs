@@ -231,8 +231,8 @@ impl CodeBuilder<'_> {
                 let target_canonical_return_register =
                     TypedRegister::new_vm_type(0, return_pointer_reg.ty);
                 let copy_argument = CopyArgument {
-                    canonical_target: target_canonical_return_register.clone(),
-                    source_temporary: temp_reg.register.clone(),
+                    canonical_target: target_canonical_return_register,
+                    source_temporary: temp_reg.register,
                 };
                 return_copy_arg = Some(copy_argument);
             } else {
@@ -317,7 +317,7 @@ impl CodeBuilder<'_> {
                 &return_reg_copy_argument.canonical_target,
                 &return_reg_copy_argument.source_temporary,
                 node,
-                &format!("copy r0 in place before arguments",),
+                &"copy r0 in place before arguments".to_string(),
             );
         }
 
