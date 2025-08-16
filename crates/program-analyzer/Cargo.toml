@@ -1,16 +1,16 @@
 [package]
 name = "swamp-program-analyzer"
-version = "0.2.23"
+version = "0.2.24"
 edition = "2024"
 license = "MIT"
 description = "Orchestrates the semantic analysis phase for a Swamp program, analyzing parsed modules in the correct dependency order using `swamp-analyzer`."
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-dep-loader = { path = "../dep-loader", version = "0.2.23" }
-swamp-analyzer = { path = "../analyzer", version = "0.2.23" }
-swamp-semantic = { path = "../semantic", version = "0.2.23" }
-swamp-modules = { path = "../modules", version = "0.2.23" }
+swamp-dep-loader = { path = "../dep-loader", version = "0.2.24" }
+swamp-analyzer = { path = "../analyzer", version = "0.2.24" }
+swamp-semantic = { path = "../semantic", version = "0.2.24" }
+swamp-modules = { path = "../modules", version = "0.2.24" }
 
 source-map-cache = "0.0.6"
 

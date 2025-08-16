@@ -1,6 +1,6 @@
 [package]
 name = "swamp-code-gen"
-version = "0.2.23"
+version = "0.2.24"
 edition = "2024"
 license = "MIT"
 description = "generates swamp-vm opcodes"
@@ -8,21 +8,21 @@ repository = "https://github.com/swamp/swamp"
 
 [dependencies]
 # Swamp VM
-swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
-swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
-swamp-vm-instr-build = { path = "../vm-instr-build", version = "0.2.23" }
-swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.23" }
-swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.23" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.24" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.24" }
+swamp-vm-instr-build = { path = "../vm-instr-build", version = "0.2.24" }
+swamp-vm-disasm = { path = "../vm-disasm", version = "0.2.24" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.24" }
 
 # Swamp Analyzer
-swamp-semantic = { path = "../semantic", version = "0.2.23" }
-swamp-types = { path = "../types", version = "0.2.23" }
+swamp-semantic = { path = "../semantic", version = "0.2.24" }
+swamp-types = { path = "../types", version = "0.2.24" }
 
 # Layouter
-swamp-vm-layout = { path = "../vm-layout", version = "0.2.23" }
+swamp-vm-layout = { path = "../vm-layout", version = "0.2.24" }
 
 # Attributes
-swamp-attributes = { path = "../attributes", version = "0.2.23" }
+swamp-attributes = { path = "../attributes", version = "0.2.24" }
 
 # Source Map
 source-map-node = "0.0.1"

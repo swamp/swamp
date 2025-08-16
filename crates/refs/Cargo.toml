@@ -1,12 +1,12 @@
 [package]
 name = "swamp-refs"
-version = "0.2.23"
+version = "0.2.24"
 edition = "2024"
 description = "symbol references"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-symbol = { path = "../symbol", version = "0.2.23" }
+swamp-symbol = { path = "../symbol", version = "0.2.24" }
 seq-map = "0.0.14"
 source-map-node = "0.0.1"

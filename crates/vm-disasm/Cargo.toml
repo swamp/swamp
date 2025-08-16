@@ -1,15 +1,15 @@
 [package]
 name = "swamp-vm-disasm"
-version = "0.2.23"
+version = "0.2.24"
 edition = "2024"
 license = "MIT"
 description = "disassembler for the opcodes in the swamp vm"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-vm-types = { path = "../vm-types", version = "0.2.23" }
-swamp-vm-isa = { path = "../vm-isa", version = "0.2.23" }
-swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.23" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.24" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.24" }
+swamp-vm-debug-info = { path = "../vm-debug-info", version = "0.2.24" }
 source-map-cache = "0.0.6"
 source-map-node = "0.0.1"
 tinter = "0.1.0"
