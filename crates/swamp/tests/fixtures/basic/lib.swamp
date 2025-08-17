@@ -23,6 +23,7 @@ mod match_literal
 mod match
 mod operator
 mod option
+mod optional_chaining_bug_minimal
 mod optional_chaining_primitives
 mod optional_chaining
 // mod pretty_string

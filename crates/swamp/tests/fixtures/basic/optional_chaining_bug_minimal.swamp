@@ -1,7 +1,7 @@
 struct Character {
     name: String<32>,
 }
-/*
+
 fn create_test_character() -> Character? {
     Character {
         name: "Test",
@@ -20,22 +20,22 @@ fn minimal_string_case_a_bug() {
 
     assert(result == "Default", 'should extract string from optional')
 }
-*/
+
 
 #[test]
-fn minimal_optional_chaining_bug_a() {
-    maybe_character:  Character?  =     Character {
+fn minimal_optional_chaining_bug() {
+    maybe_character: Character? = Character {
         name: "Test",
     }
 
     result = maybe_character?.name ?? "Default"
 
-    assert(result == "Test", 'should extract string from optional')
+    assert(result == "Test", 'should extract string from optional LHS')
 }
 
-/*
+
 #[test]
-fn minimal_optional_chaining_bug() {
+fn minimal_optional_chaining_bug_create() {
     maybe_character = create_test_character()
 
     result = maybe_character?.name ?? "Default"
@@ -51,4 +51,3 @@ fn minimal_optional_chaining_none_case() {
 
     assert(result == "Default", 'should use default when character is none')
 }
-*/

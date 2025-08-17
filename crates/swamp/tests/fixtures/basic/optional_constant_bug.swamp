@@ -1,0 +1,11 @@
+/*
+/// Found by @catnipped
+/// Multiple problems.
+/// compiler should verify that the type is correct. If there is no `??` the type should still be an optional
+/// the [] should be known since the `??` should check its left side to infer the type
+/// And somehow the Vec is not initialized properly, maybe due to it containing an optional?
+#[test]
+fn optional_with_constant() {
+    artifact_slots: Vec<ArtifactID?;10> = CARD_LIB[data_id].template.unpack_unit()?.artifact_slots ?? []
+}
+*/
