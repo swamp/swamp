@@ -10,5 +10,5 @@ pub use {
     swamp_refs::prelude::*, swamp_runtime::prelude::*, swamp_semantic::prelude::*,
     swamp_symbol::prelude::*, swamp_types::prelude::*, swamp_vm::prelude::*,
     swamp_vm_debug_info::DebugInfo, swamp_vm_debug_info::*, swamp_vm_isa::prelude::*,
-    swamp_vm_types::prelude::*, swamp_yini::prelude::*,
+    swamp_vm_types::prelude::*, swamp_yini::prelude::*, swamp_yini::prelude::*,
 };
