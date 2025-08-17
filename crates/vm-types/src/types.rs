@@ -3,21 +3,21 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::{
-    AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion, FrameMemorySize,
-    InstructionPositionOffset, InstructionRange, MemoryLocation, align_to,
+    align_to, AggregateMemoryLocation, CountU16, FrameMemoryAddress, FrameMemoryRegion,
+    FrameMemorySize, InstructionPositionOffset, InstructionRange, MemoryLocation,
 };
 use fxhash::FxHasher;
 use seq_fmt::comma;
-use std::cmp::{Ordering, max};
+use std::cmp::{max, Ordering};
 use std::fmt::{Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use swamp_vm_isa::{
-    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, HeapMemoryAddress, HeapMemoryRegion,
-    InstructionPosition, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
-    MAP_ITERATOR_SIZE, MemoryAlignment, MemoryOffset, MemorySize, ProgramCounterDelta,
-    RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE,
-    RegIndex, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
+    HeapMemoryAddress, HeapMemoryRegion, InstructionPosition, MemoryAlignment,
+    MemoryOffset, MemorySize, ProgramCounterDelta, RegIndex,
+    HEAP_PTR_ON_FRAME_ALIGNMENT, HEAP_PTR_ON_FRAME_SIZE, MAP_HEADER_ALIGNMENT, MAP_HEADER_SIZE, MAP_ITERATOR_ALIGNMENT,
+    MAP_ITERATOR_SIZE, RANGE_HEADER_ALIGNMENT, RANGE_HEADER_SIZE, RANGE_ITERATOR_ALIGNMENT,
+    RANGE_ITERATOR_SIZE, STRING_PTR_ALIGNMENT, STRING_PTR_SIZE, VEC_HEADER_SIZE, VEC_ITERATOR_ALIGNMENT,
     VEC_ITERATOR_SIZE, VEC_PTR_ALIGNMENT, VEC_PTR_SIZE,
 };
 use tracing::error;
@@ -113,7 +113,7 @@ pub struct TaggedUnion {
 
 impl Display for TaggedUnion {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "union {}:", self.name,)?;
+        write!(f, "union {}:", self.name, )?;
         for (offset, variant) in self.variants.iter().enumerate() {
             writeln!(f, "  {offset}: {variant}")?;
         }
@@ -1036,8 +1036,8 @@ impl VmType {
     pub fn is_mutable_primitive(&self) -> bool {
         self.basic_type.is_mutable_reference()
             && self
-                .basic_type
-                .should_be_copied_back_when_mutable_arg_or_return()
+            .basic_type
+            .should_be_copied_back_when_mutable_arg_or_return()
     }
 
     #[must_use]
@@ -1948,12 +1948,12 @@ pub fn write_basic_type(
         BasicTypeKind::Any => write!(f, "Any"),
         BasicTypeKind::Pointer => write!(f, "Ptr"),
         BasicTypeKind::Empty => write!(f, "()"),
-        BasicTypeKind::U8 => write!(f, "{}", "u8".white()),
-        BasicTypeKind::B8 => write!(f, "{}", "b8".white()),
-        BasicTypeKind::U16 => write!(f, "{}", "u16".white()),
-        BasicTypeKind::S32 => write!(f, "{}", "s32".white()),
-        BasicTypeKind::Fixed32 => write!(f, "{}", "f32".white()),
-        BasicTypeKind::U32 => write!(f, "{}", "u32".white()),
+        BasicTypeKind::U8 => write!(f, "{}", "u8"),
+        BasicTypeKind::B8 => write!(f, "{}", "b8"),
+        BasicTypeKind::U16 => write!(f, "{}", "u16"),
+        BasicTypeKind::S32 => write!(f, "{}", "s32"),
+        BasicTypeKind::Fixed32 => write!(f, "{}", "f32"),
+        BasicTypeKind::U32 => write!(f, "{}", "u32"),
         BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),
         BasicTypeKind::TaggedUnion(tagged_union) => {
             show_tagged_union(tagged_union, origin, f, tabs)
@@ -2023,7 +2023,7 @@ pub fn write_basic_type(
             value_type,
             ..
         } => {
-            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>",)
+            write!(f, "MapStorage<{key_type}, {value_type}, {logical_size}>", )
         }
         BasicTypeKind::InternalVecIterator => {
             write!(f, "vec_iter")

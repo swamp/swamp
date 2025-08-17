@@ -9,7 +9,7 @@ use std::fmt::Write;
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_instructions_color;
 use swamp_vm_isa::BinaryInstruction;
-use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
+use swamp_vm_types::types::{show_frame_memory, write_basic_type, VariableRegister, VmType};
 use swamp_vm_types::{FrameMemoryAddress, InstructionRange};
 
 #[must_use]
@@ -20,22 +20,42 @@ pub fn show_parameters_and_variables(
     return_type: &VmType,
     variables: &[VariableRegister],
     f: &mut dyn Write,
+    use_color: bool,
 ) -> Result<(), fmt::Error> {
-    if !return_type.is_scalar() {
-        writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
-        write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
-        writeln!(f)?;
-    }
+    if use_color {
+        if !return_type.is_scalar() {
+            writeln!(f, "{}: {}", tinter::blue("r0"), &return_type, )?;
+            write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
+            writeln!(f)?;
+        }
 
-    for variable_register in variables {
-        writeln!(
-            f,
-            "var{}: ({}): {} {}",
-            tinter::yellow(format!("{}", variable_register.unique_id_in_function)),
-            tinter::magenta(variable_register),
-            variable_register.register.ty,
-            variable_register.register.comment
-        )?;
+        for variable_register in variables {
+            writeln!(
+                f,
+                "var{}: ({}): {} {}",
+                tinter::yellow(format!("{}", variable_register.unique_id_in_function)),
+                tinter::magenta(variable_register),
+                variable_register.register.ty,
+                variable_register.register.comment
+            )?;
+        }
+    } else {
+        if !return_type.is_scalar() {
+            writeln!(f, "{}: {}", "r0", &return_type, )?;
+            write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
+            writeln!(f)?;
+        }
+
+        for variable_register in variables {
+            writeln!(
+                f,
+                "var{}: ({}): {} {}",
+                format!("{}", variable_register.unique_id_in_function),
+                variable_register,
+                variable_register.register.ty,
+                variable_register.register.comment
+            )?;
+        }
     }
 
     Ok(())
@@ -61,14 +81,15 @@ pub fn disasm_function(
         &mut header_output,
         use_color,
     )
-    .unwrap();
+        .unwrap();
 
     show_parameters_and_variables(
         return_type,
         &info.function_debug_info.frame_memory.variable_registers,
         &mut header_output,
+        use_color,
     )
-    .expect("should work");
+        .expect("should work");
 
     let asm = disasm_instructions_color(
         instructions,
@@ -78,7 +99,7 @@ pub fn disasm_function(
         use_color,
     );
 
-    format!("{header_output}\n{asm}",)
+    format!("{header_output}\n{asm}", )
 }
 
 pub fn disasm_whole_program(

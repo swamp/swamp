@@ -114,3 +114,42 @@ fn struct_payload_with_vec() {
         }
     }
 }
+
+enum Wind {
+	West,
+	East,
+}
+
+
+impl Wind {
+	fn opposite(self) -> Wind {
+		match self {
+			West -> East,
+			East -> West,
+		}
+	}
+}
+
+
+struct SomeUnit {
+	wind: Wind,
+}
+
+fn function_that_uses_enum(wind: Wind) {
+	print('wind: {wind}')
+	assert(wind == East, 'wrong wind {wind}')
+}
+
+/// Found by @catnipped
+/// Must look at the assembly to see that a register
+/// is allocated for the temp value in the parameter (store.wind.opposite())-return
+/// But no memory is allocated for it! So it depends on what that temp register was used for previously
+#[test]
+fn temp_memory_for_enum_function_return() {
+	store = SomeUnit {
+		wind: Wind::West,
+	}
+	// no memory is allocated for the return register (r0)
+	// so it overwrites memory depending on the value in the temp register
+	function_that_uses_enum(store.wind.opposite())
+}
