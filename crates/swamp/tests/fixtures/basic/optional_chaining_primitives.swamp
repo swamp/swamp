@@ -1,0 +1,504 @@
+struct Player {
+	target: Int?,
+	health: Int?,
+	mana: Int?,
+	score: Int?,
+	experience: Float?,
+}
+
+struct Item {
+	level: Int,
+	damage: Int,
+	durability: Float,
+}
+
+struct Monster {
+	holding: Item?,
+	health: Int?,
+	damage: Int?,
+}
+
+struct Weapon {
+	damage: Int?,
+	critical_chance: Float?,
+}
+
+struct GameState {
+	current_player: Player?,
+	boss_monster: Monster?,
+	active_weapon: Weapon?,
+}
+
+#[test]
+fn int_from_struct() {
+	player = Player {
+		..
+	}
+
+	target_id = player.target ?? -1
+
+	assert(target_id == -1, 'failed target {target_id}')
+}
+
+#[test]
+fn int_from_none_optional_in_struct() {
+	monster = Monster {
+		..
+	}
+
+	item_level = monster.holding?.level ?? 2
+
+	assert(item_level == 2, 'failed item_level {item_level}')
+}
+
+
+#[test]
+fn int_from_some_optional_in_struct() {
+	monster = Monster {
+		holding: Item {
+			level: 42,
+			damage: 10,
+			durability: 100.0,
+		},
+		..
+	}
+
+	item_level = monster.holding?.level ?? 2
+
+	assert(item_level == 42, 'failed item_level {item_level}')
+}
+
+
+#[test]
+fn optional_int_from_some_optional_in_struct() {
+	monster = Monster {
+		holding: Item {
+			level: 42,
+			damage: 10,
+			durability: 100.0,
+		},
+		..
+	}
+
+	maybe_level: Int? = 2
+
+	// item_level should now be inferred as `Int?`
+	item_level = monster.holding?.level ?? maybe_level
+
+	assert(item_level, 'item_level should be some')
+	x = when item_level item_level else -999
+	assert(x == 42, 'item_level should be some')
+}
+
+#[test]
+fn player_health_memory_to_register() {
+	player = Player {
+		health: 100,
+		..
+	}
+
+	default_health = 50
+	current_health = player.health ?? default_health
+	assert(current_health == 100, 'health should be 100')
+}
+
+#[test]
+fn player_mana_none_memory_to_register() {
+	player = Player {
+		..
+	}
+
+	default_mana = 25
+	current_mana = player.mana ?? default_mana
+	assert(current_mana == 25, 'mana should default to 25')
+}
+
+#[test]
+fn weapon_damage_memory_to_memory() {
+	weapon = Weapon {
+		damage: 50,
+		..
+	}
+
+	base_stats = Player {
+		target: 10,
+		..
+	}
+
+	final_damage = weapon.damage ?? base_stats.target ?? 1
+	assert(final_damage == 50, 'damage should be 50')
+}
+
+#[test]
+fn weapon_critical_none_memory_to_memory() {
+	weapon = Weapon {
+		..
+	}
+
+	game_state = GameState {
+		current_player: Player {
+			experience: 0.15,
+			..
+		},
+		..
+	}
+
+	// weapon.critical_chance is None, fallback to player experience
+	crit_chance = weapon.critical_chance ?? game_state.current_player?.experience ?? 0.0
+	assert(crit_chance == 0.15, 'crit chance should be 0.15')
+}
+
+#[test]
+fn deep_chain_with_variable_fallback() {
+	game = GameState {
+		boss_monster: Monster {
+			holding: Item {
+				level: 99,
+				damage: 200,
+				durability: 85.5,
+			},
+			..
+		},
+		..
+	}
+
+	fallback_damage = 1
+	boss_weapon_level = game.boss_monster?.holding?.level ?? fallback_damage
+	assert(boss_weapon_level == 99, 'boss weapon level should be 99')
+}
+
+#[test]
+fn deep_chain_none_with_variable_fallback() {
+	game = GameState {
+		boss_monster: Monster {
+			..
+		},
+		..
+	}
+
+	fallback_damage = 5
+	boss_weapon_level = game.boss_monster?.holding?.level ?? fallback_damage
+	assert(boss_weapon_level == 5, 'should fallback to 5')
+}
+
+#[test]
+fn int_to_float_coercion_register() {
+	player = Player {
+		experience: 150.0,
+		..
+	}
+
+	base_exp = 100.0
+	player_exp = player.experience ?? base_exp
+	assert(player_exp == 150.0, 'experience should be 150.0')
+}
+
+#[test]
+fn int_to_float_coercion_none() {
+	player = Player {
+		..
+	}
+
+	base_exp = 75.0
+	player_exp = player.experience ?? base_exp
+	assert(player_exp == 75.0, 'experience should be 75.0')
+}
+
+#[test]
+fn multiple_fallback_chain() {
+	weak_monster = Monster {
+		..
+	}
+
+	strong_monster = Monster {
+		damage: 80,
+		..
+	}
+
+	backup_damage = 10
+
+	// Chain multiple ?? operators. Should get strong_monster.damage
+	final_damage = weak_monster.damage ?? strong_monster.damage ?? backup_damage
+	assert(final_damage == 80, 'should use strong monster damage')
+}
+
+#[test]
+fn multiple_fallback_all_none() {
+	weak_monster = Monster {
+		..
+	}
+
+	strong_monster = Monster {
+		..
+	}
+
+	backup_damage = 15
+
+	// All optionals are none, should use backup_damage
+	final_damage = weak_monster.damage ?? strong_monster.damage ?? backup_damage
+	assert(final_damage == 15, 'should use backup damage')
+}
+
+#[test]
+fn variable_vs_literal_fallback() {
+	player = Player {
+		..
+	}
+
+	literal_fallback = player.score ?? 909
+
+	variable_fallback_value = 100
+	variable_fallback = player.score ?? variable_fallback_value
+
+	assert(literal_fallback == 909, 'literal fallback should be 0')
+	assert(variable_fallback == 100, 'variable fallback should be 100')
+}
+
+#[test]
+fn nested_access_with_memory_fallback() {
+	game = GameState {
+		current_player: Player {
+			health: 80,
+			..
+		},
+		active_weapon: Weapon {
+			..
+		},
+		..
+	}
+
+	weapon_power = game.active_weapon?.damage ?? game.current_player?.health ?? 0
+	assert(weapon_power == 80, 'should fallback to player health')
+}
+
+#[test]
+fn complex_game_scenario() {
+	player = Player {
+		health: 150,
+		mana: 75,
+		target: 42,
+		..
+	}
+
+	boss = Monster {
+		health: 500,
+		holding: Item {
+			level: 50,
+			damage: 85,
+			durability: 90.0,
+		},
+		..
+	}
+
+	weapon = Weapon {
+		critical_chance: 0.25,
+		..
+	}
+
+	// Complex scenario: weapon damage falls back to boss item damage,
+	// which falls back to player target
+	attack_power = weapon.damage ?? boss.holding?.damage ?? player.target ?? 0
+	assert(attack_power == 85, 'should use boss item damage')
+
+	// Player mana with boss health fallback
+	spell_power = player.mana ?? boss.health ?? 0
+	assert(spell_power == 75, 'should use player mana')
+}
+
+// Tests for specific codegen edge cases
+#[test]
+fn register_spill_scenario() {
+	// Create multiple variables to potentially cause register pressure
+	p1 = Player { health: 10, mana: 20, target: 30, score: 40, experience: 50.0 }
+	p2 = Player { health: 11, mana: 21, target: 31, score: 41, experience: 51.0 }
+	p3 = Player { health: 12, mana: 22, target: 32, score: 42, experience: 52.0 }
+	p4 = Player { health: 13, mana: 23, target: 33, score: 43, experience: 53.0 }
+
+	fallback1 = 100
+	fallback2 = 200
+	fallback3 = 300
+	fallback4 = 400
+
+	// Force complex register allocation with multiple ?? operations
+	result1 = p1.health ?? fallback1
+	result2 = p2.mana ?? fallback2
+	result3 = p3.target ?? fallback3
+	result4 = p4.score ?? fallback4
+
+	total = result1 + result2 + result3 + result4
+	assert(total == 106, 'register spill test failed')
+}
+
+#[test]
+fn stack_to_stack_copy() {
+	local_player = Player {
+		..
+	}
+
+	stack_health = 150
+	stack_mana = 80
+	stack_target = 99
+
+	health_result = local_player.health ?? stack_health
+	mana_result = local_player.mana ?? stack_mana
+	target_result = local_player.target ?? stack_target
+
+	assert(health_result == 150, 'stack health failed')
+	assert(mana_result == 80, 'stack mana failed')
+	assert(target_result == 99, 'stack target failed')
+}
+
+#[test]
+fn immediate_value_optimization() {
+	player = Player {
+		health: 55,
+		..
+	}
+
+	result1 = player.mana ?? 1
+	result2 = player.target ?? 42
+	result3 = player.score ?? 999
+
+	assert(result1 == 1, 'immediate 1 failed')
+	assert(result2 == 42, 'immediate 42 failed')
+	assert(result3 == 999, 'immediate 999 failed')
+}
+
+#[test]
+fn float_precision_edge_case() {
+	player = Player {
+		experience: 3.14159,
+		..
+	}
+
+	fallback_exp = 2.71828
+	result = player.experience ?? fallback_exp
+
+	assert(result > 3.14 && result < 3.15, 'float precision lost')
+}
+
+#[test]
+fn zero_value_disambiguation() {
+	player = Player {
+		score: 0,
+		..
+	}
+
+	fallback_score = 100
+	actual_score = player.score ?? fallback_score
+
+	assert(actual_score == 0, 'zero value should not trigger fallback')
+}
+
+#[test]
+fn negative_value_handling() {
+	player = Player {
+		health: -10,
+		..
+	}
+
+	fallback_health = 50
+	current_health = player.health ?? fallback_health
+
+	assert(current_health == -10, 'negative value should be preserved')
+}
+
+#[test]
+fn chained_struct_field_access() {
+	game = GameState {
+		current_player: Player {
+			target: 777,
+			..
+		},
+		boss_monster: Monster {
+			health: 888,
+			holding: Item {
+				level: 999,
+				damage: 111,
+				durability: 222.0,
+			},
+			..
+		},
+		active_weapon: Weapon {
+			damage: 333,
+			critical_chance: 0.444,
+		},
+	}
+
+	// Deep access patterns
+	player_target = game.current_player?.target ?? 0
+	boss_item_level = game.boss_monster?.holding?.level ?? 0
+	weapon_damage = game.active_weapon?.damage ?? 0
+	weapon_crit = game.active_weapon?.critical_chance ?? 0.0
+
+	assert(player_target == 777, 'player target access failed')
+	assert(boss_item_level == 999, 'boss item level access failed')
+	assert(weapon_damage == 333, 'weapon damage access failed')
+	assert(weapon_crit > 0.4 && weapon_crit < 0.5, 'weapon crit access failed')
+}
+
+#[test]
+fn mixed_type_fallback_chain() {
+	player = Player {
+		target: 42,
+		experience: 3.14,
+		..
+	}
+
+	int_fallback = 100
+	float_fallback = 2.71
+
+	int_result = player.score ?? int_fallback
+	assert(int_result == 100, 'int fallback failed')
+
+	float_result = player.experience ?? float_fallback
+	assert(float_result > 3.0, 'float fallback failed')
+}
+
+#[test]
+fn memory_alignment_stress_test() {
+	monsters = [
+		Monster { health: 100, damage: 20, .. },
+		Monster { health: 200, damage: 30, .. },
+		Monster { health: 300, damage: 40, .. },
+	]
+
+	fallback_health = 50
+	fallback_damage = 10
+
+	total_health = monsters[0].health ?? fallback_health
+	total_health = total_health + (monsters[1].health ?? fallback_health)
+	total_health = total_health + (monsters[2].health ?? fallback_health)
+
+	total_damage = monsters[0].damage ?? fallback_damage
+	total_damage = total_damage + (monsters[1].damage ?? fallback_damage)
+	total_damage = total_damage + (monsters[2].damage ?? fallback_damage)
+
+	assert(total_health == 600, 'memory alignment health test failed')
+	assert(total_damage == 90, 'memory alignment damage test failed')
+}
+
+#[test]
+fn conditional_expression_complexity() {
+	player = Player {
+		health: 75,
+		mana: 50,
+		..
+	}
+
+	enemy = Monster {
+		health: 150,
+		..
+	}
+
+	health_threshold = 80
+	mana_threshold = 60
+
+	player_healthy = (player.health ?? 0) > health_threshold
+	player_has_mana = (player.mana ?? 0) > mana_threshold
+	enemy_alive = (enemy.health ?? 0) > 0
+
+	assert(!player_healthy, 'player should not be healthy')
+	assert(!player_has_mana, 'player should not have enough mana')
+	assert(enemy_alive, 'enemy should be alive')
+}
