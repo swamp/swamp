@@ -1,12 +1,12 @@
 [package]
 name = "swamp-vm-instr-build"
-version = "0.2.25"
+version = "0.2.26"
 edition = "2024"
 license = "MIT"
 description = "builds opcodes for the swamp vm"
 repository = "https://github.com/swamp/swamp"
 
 [dependencies]
-swamp-vm-types = { path = "../vm-types", version = "0.2.25" }
-swamp-vm-isa = { path = "../vm-isa", version = "0.2.25" }
+swamp-vm-types = { path = "../vm-types", version = "0.2.26" }
+swamp-vm-isa = { path = "../vm-isa", version = "0.2.26" }
 source-map-node = "0.0.1"

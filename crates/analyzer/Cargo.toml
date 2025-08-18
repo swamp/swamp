@@ -1,18 +1,18 @@
 [package]
 name = "swamp-analyzer"
-version = "0.2.25"
+version = "0.2.26"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "analyzer for swamp"
 
 [dependencies]
-swamp-semantic = { path = "../semantic", version = "0.2.25" }
-swamp-ast = { path = "../ast", version = "0.2.25" }
-swamp-types = { path = "../types", version = "0.2.25" }
-swamp-modules = { path = "../modules", version = "0.2.25" }
-swamp-attributes = { path = "../attributes", version = "0.2.25" }
-swamp-symbol = { path = "../symbol", version = "0.2.25" }
+swamp-semantic = { path = "../semantic", version = "0.2.26" }
+swamp-ast = { path = "../ast", version = "0.2.26" }
+swamp-types = { path = "../types", version = "0.2.26" }
+swamp-modules = { path = "../modules", version = "0.2.26" }
+swamp-attributes = { path = "../attributes", version = "0.2.26" }
+swamp-symbol = { path = "../symbol", version = "0.2.26" }
 # Future // swamp-pretty-print = { path = "../pretty-print", version = "0.2.0" }
 
 source-map-node = "0.0.1"

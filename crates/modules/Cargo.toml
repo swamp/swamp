@@ -1,16 +1,16 @@
 [package]
 name = "swamp-modules"
-version = "0.2.25"
+version = "0.2.26"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/swamp/swamp"
 description = "Module support for Swamp"
 
 [dependencies]
-swamp-semantic = { path = "../semantic", version = "0.2.25" }
-swamp-types = { path = "../types", version = "0.2.25" }
-swamp-symbol = { path = "../symbol", version = "0.2.25" }
-swamp-refs = { path = "../refs", version = "0.2.25" }
+swamp-semantic = { path = "../semantic", version = "0.2.26" }
+swamp-types = { path = "../types", version = "0.2.26" }
+swamp-symbol = { path = "../symbol", version = "0.2.26" }
+swamp-refs = { path = "../refs", version = "0.2.26" }
 source-map-node = "0.0.1"
 
 seq-map = "0.0.14"

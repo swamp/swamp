@@ -1,0 +1,696 @@
+// Enhanced game structures with better string handling scenarios
+struct Spell {
+    name: String<32>,           // Fixed-size spell name
+    incantation: String<64>,    // Fixed-size magical words
+    school: String<24>?,        // Fixed-size string for magic school
+    description: String<128>?,  // Fixed-size string for descriptions
+}
+
+impl Spell {
+    fn get_casting_words(self) -> String {
+        "By the power of " + self.incantation + "!"
+    }
+
+    fn get_full_description(self) -> String? {
+        when desc = self.description {
+            when school = self.school {
+                '{self.name} ({school}): {desc}'
+            } else {
+                '{self.name}: {desc}'
+            }
+        } else {
+            none
+        }
+    }
+}
+
+struct Weapon {
+    name: String<48>,           // Fixed-size weapon name
+    enchantment: String<24>?,   // Optional fixed-size enchantment
+    origin_story: String<256>?, // Optional fixed-size string for lore
+    battle_cry: String<64>?,    // Optional fixed-size string for flavor
+}
+
+impl Weapon {
+    fn get_display_name(self) -> String {
+        when ench = self.enchantment {
+            '{self.name} of {ench}'
+        } else {
+            self.name
+        }
+    }
+
+    fn get_lore_text(self) -> String? {
+        self.origin_story
+    }
+}
+
+struct Character {
+    name: String<32>,           // Fixed-size character name
+    title: String<16>?,         // Optional fixed-size title
+    guild: String<64>?,         // Optional fixed-size string for guild
+    biography: String<512>?,    // Optional fixed-size string for backstory
+    primary_weapon: Weapon?,    // Optional weapon
+    known_spells: [Spell; 3],   // Array of spells
+    favorite_spell: Spell?,     // Optional favorite spell
+}
+
+impl Character {
+    fn get_full_name(self) -> String {
+        when title = self.title {
+            '{title} {self.name}'
+        } else {
+            self.name
+        }
+    }
+
+    fn get_introduction(self) -> String? {
+        when bio = self.biography {
+            when guild = self.guild {
+                '{self.name} of {guild}: {bio}'
+            } else {
+                '{self.name}: {bio}'
+            }
+        } else {
+            none
+        }
+    }
+
+    fn get_weapon_description(self) -> String? {
+        when weapon = self.primary_weapon {
+            when story = weapon.origin_story {
+                '{weapon.name} - {story}'
+            } else {
+                weapon.name
+            }
+        } else {
+            none
+        }
+    }
+}
+
+fn create_legendary_weapon() -> Weapon? {
+    Weapon {
+        name: "Excalibur",
+        enchantment: "Holy Light",
+        origin_story: "Forged in the fires of Mount Celestial by ancient dragon smiths",
+        battle_cry: "For honor and glory!",
+    }
+}
+
+fn create_basic_weapon() -> Weapon? {
+    Weapon {
+        name: "Iron Sword",
+        enchantment: none,
+        origin_story: none,
+        battle_cry: "Strike true!",
+    }
+}
+
+fn create_master_wizard() -> Character? {
+    Character {
+        name: "Gandalf",
+        title: "The Grey",
+        guild: "Order of the White Council",
+        biography: "A wise wizard who has traveled Middle-earth for centuries",
+        primary_weapon: Weapon {
+            name: "Glamdring",
+            enchantment: "Orc Bane",
+            origin_story: "An ancient Elvish blade from Gondolin",
+            battle_cry: none,
+        },
+        known_spells: [
+            Spell {
+                name: "Fireball",
+                incantation: "Ignis Maximus",
+                school: "Evocation",
+                description: "Hurls a blazing sphere of fire at enemies",
+            },
+            Spell {
+                name: "Shield",
+                incantation: "Protego Totalum",
+                school: "Abjuration",
+                description: "Creates a magical barrier against attacks",
+            },
+            Spell {
+                name: "Heal",
+                incantation: "Sanitas Corporis",
+                school: "Restoration",
+                description: none,
+            },
+        ],
+        favorite_spell: Spell {
+            name: "Light",
+            incantation: "Lumos Perpetua",
+            school: "Evocation",
+            description: "Creates a brilliant light to illuminate dark places",
+        },
+    }
+}
+
+fn create_rogue_character() -> Character? {
+    Character {
+        name: "Shadowblade",
+        title: none,
+        guild: none,
+        biography: none,
+        primary_weapon: none,
+        known_spells: [
+            Spell {
+                name: "Invisibility",
+                incantation: "Umbra Corpus",
+                school: none,
+                description: none,
+            },
+            Spell {
+                name: "Lockpick",
+                incantation: "Aperio Clausum",
+                school: none,
+                description: none,
+            },
+            Spell {
+                name: "Sneak Attack",
+                incantation: "Furtivus Ictus",
+                school: none,
+                description: none,
+            },
+        ],
+        favorite_spell: none,
+    }
+}
+
+fn create_none_character() -> Character? {
+    none
+}
+
+// Tests for String<N> vs String mixing with memory/register scenarios
+
+// Test basic field access with String<N> to String view
+#[test]
+fn string_fixed_to_view_character_name() {
+    character = create_master_wizard()
+
+    // String<32> field to String view fallback
+    fallback_name = "Unknown Hero"  // String view
+    character_name = character?.name ?? fallback_name
+
+    assert(character_name == "Gandalf", 'fixed string to view should work')
+    print('Character: {character_name}')
+}
+
+#[test]
+fn string_fixed_to_view_none() {
+    character = create_none_character()
+
+    // None character with String view fallback
+    fallback_name = "Nameless Wanderer"
+    character_name = character?.name ?? fallback_name
+
+    assert(character_name == "Nameless Wanderer", 'should use string view fallback')
+    print('Character: {character_name}')
+}
+
+// Test String<N> optional field with String<N> fallback
+#[test]
+fn string_fixed_to_fixed_title() {
+    character = create_master_wizard()
+
+    // String<16>? field with String<16> fallback
+    fallback_title = "Novice"
+    character_title = character?.title ?? fallback_title
+
+    assert(character_title == "The Grey", 'should use character title')
+    print('Title: {character_title}')
+}
+
+#[test]
+fn string_fixed_to_fixed_none_title() {
+    character = create_rogue_character()  // Has no title
+
+    fallback_title = "Apprentice"
+    character_title = character?.title ?? fallback_title
+
+    assert(character_title == "Apprentice", 'should use fallback title')
+    print('Title: {character_title}')
+}
+
+// Test String<N> optional field with String view fallback
+#[test]
+fn string_view_to_view_guild() {
+    character = create_master_wizard()
+
+    // String<64>? field with String view fallback
+    fallback_guild = "Independent Adventurer"
+    character_guild = character?.guild ?? fallback_guild
+
+    assert(character_guild == "Order of the White Council", 'should use character guild')
+    print('Guild: {character_guild}')
+}
+
+#[test]
+fn string_view_to_view_none_guild() {
+    character = create_rogue_character()  // Has no guild
+
+    fallback_guild = "Freelancer"
+    character_guild = character?.guild ?? fallback_guild
+
+    assert(character_guild == "Freelancer", 'should use fallback guild')
+    print('Guild: {character_guild}')
+}
+
+// Test mixed String<N> and String view scenarios
+#[test]
+fn string_view_to_fixed_mixed() {
+    character = create_master_wizard()
+
+    // String<512>? field with String view variable fallback
+    fallback_bio = "A mysterious figure with unknown origins"  // String view
+    character_bio = character?.biography ?? fallback_bio
+
+    assert(character_bio == "A wise wizard who has traveled Middle-earth for centuries", 'should use character bio')
+    print('Bio: {character_bio}')
+}
+
+// Test nested struct string access patterns
+#[test]
+fn nested_string_weapon_name() {
+    character = create_master_wizard()
+
+    // Nested String<48> access with String fallback
+    fallback_weapon = "Bare Hands"
+    weapon_name = character?.primary_weapon?.name ?? fallback_weapon
+
+    assert(weapon_name == "Glamdring", 'should get nested weapon name')
+    print('Weapon: {weapon_name}')
+}
+
+#[test]
+fn nested_string_weapon_enchantment() {
+    character = create_master_wizard()
+
+    // Nested String<24>? access with String<N> fallback
+    fallback_enchant = "Mundane"
+    weapon_enchant = character?.primary_weapon?.enchantment ?? fallback_enchant
+
+    assert(weapon_enchant == "Orc Bane", 'should get weapon enchantment')
+    print('Enchantment: {weapon_enchant}')
+}
+
+#[test]
+fn nested_string_none_weapon() {
+    character = create_rogue_character()  // No weapon
+
+    fallback_weapon = "Rusty Dagger"
+    weapon_name = character?.primary_weapon?.name ?? fallback_weapon
+
+    assert(weapon_name == "Rusty Dagger", 'should use fallback for missing weapon')
+    print('Weapon: {weapon_name}')
+}
+
+// Test array access with string fields
+#[test]
+fn array_spell_name_access() {
+    character = create_master_wizard()
+
+    // Access spell name from array - String<32>
+    fallback_spell = "No Spell"
+    first_spell = character?.known_spells[0].name ?? fallback_spell
+
+    assert(first_spell == "Fireball", 'should get first spell name')
+    print('First Spell: {first_spell}')
+}
+
+#[test]
+fn array_spell_school_access() {
+    character = create_master_wizard()
+
+    // Access optional String<24>? field from array element
+    fallback_school = "Unknown School"
+    spell_school = character?.known_spells[1].school ?? fallback_school
+
+    assert(spell_school == "Abjuration", 'should get spell school')
+    print('Spell School: {spell_school}')
+}
+
+#[test]
+fn array_spell_none_description() {
+    character = create_master_wizard()
+
+    // Third spell has no description
+    fallback_desc = "A mysterious spell with unknown effects"
+    spell_desc = character?.known_spells[2].description ?? fallback_desc
+
+    assert(spell_desc == "A mysterious spell with unknown effects", 'should use fallback description')
+    print('Spell Description: {spell_desc}')
+}
+
+// Test method calls returning strings
+#[test]
+fn method_string_full_name() {
+    character = create_master_wizard()
+
+    fallback_name = "Anonymous"
+    full_name = character?.get_full_name() ?? fallback_name
+
+    assert(full_name == "The Grey Gandalf", 'should get full name with title')
+    print('Full Name: {full_name}')
+}
+
+#[test]
+fn method_string_introduction_some() {
+    character = create_master_wizard()
+
+    fallback_intro = "A stranger appears"
+    introduction = character?.get_introduction() ?? fallback_intro
+
+    assert(introduction == "Gandalf of Order of the White Council: A wise wizard who has traveled Middle-earth for centuries", 'should get full introduction')
+    print('Introduction: {introduction}')
+}
+
+#[test]
+fn method_string_introduction_none() {
+    character = create_rogue_character()  // No bio or guild
+
+    fallback_intro = "A mysterious figure emerges from the shadows"
+    introduction = character?.get_introduction() ?? fallback_intro
+
+    assert(introduction == "A mysterious figure emerges from the shadows", 'should use fallback intro')
+    print('Introduction: {introduction}')
+}
+
+// Test memory location to memory location string scenarios
+#[test]
+fn memory_to_memory_string_fallback() {
+    wizard = create_master_wizard()
+    rogue = create_rogue_character()
+
+    // Use rogue's name as fallback for wizard's guild (both memory locations)
+    guild_or_name = wizard?.guild ?? rogue?.name ?? "Unknown"
+
+    assert(guild_or_name == "Order of the White Council", 'should use wizard guild')
+    print('Guild or Name: {guild_or_name}')
+}
+
+#[test]
+fn memory_to_memory_string_fallback_none() {
+    wizard = create_master_wizard()
+    rogue = create_rogue_character()
+
+    // Use wizard's biography as fallback for rogue's guild (memory to memory)
+    guild_or_bio = rogue?.guild ?? wizard?.biography ?? "No information"
+
+    assert(guild_or_bio == "A wise wizard who has traveled Middle-earth for centuries", 'should fallback to wizard bio')
+    print('Guild or Bio: {guild_or_bio}')
+}
+
+// Test complex chaining with mixed string types
+#[test]
+fn complex_string_chain() {
+    character = create_master_wizard()
+
+    // Complex chain: weapon cry -> spell incantation -> character title -> fallback
+    battle_phrase = character?.primary_weapon?.battle_cry ??
+                   character?.favorite_spell?.incantation ??
+                   character?.title ??
+                   "Silence"
+
+    assert(battle_phrase == "Lumos Perpetua", 'should use spell incantation')
+    print('Battle Phrase: {battle_phrase}')
+}
+
+// Test string coercion edge cases
+#[test]
+fn string_coercion_weapon_story() {
+    weapon = create_legendary_weapon()
+
+    short_fallback = "Basic weapon"  // String view
+    weapon_story = weapon?.origin_story ?? short_fallback
+
+    assert(weapon_story == "Forged in the fires of Mount Celestial by ancient dragon smiths", 'should get full origin story')
+    print('Origin: {weapon_story}')
+}#[test]
+fn string_coercion_none_weapon() {
+    weapon = create_basic_weapon()  // No origin story
+
+    long_fallback = "This weapon has no recorded history, but it serves its purpose well in the hands of a skilled warrior"
+    weapon_story = weapon?.origin_story ?? long_fallback
+
+	assert(weapon_story == "This weapon has no recorded history, but it serves its purpose well in the hands of a skilled warrior", 'should use long fallback')
+	print('Origin: {weapon_story}')
+}
+
+// Test optional chaining without coalescing (returning Optional types)
+#[test]
+fn optional_return_character_name() {
+	character = create_master_wizard()
+	optional_name = character?.name  // Returns String?
+
+	// Test that we got Some value
+	when name = optional_name {
+		assert(name == "Gandalf", "Optional chaining should return Some(name)")
+	} else {
+		assert(false, "Should have gotten Some value for character name")
+	}
+
+	print('Optional name: {optional_name}')
+}
+
+#[test]
+fn optional_return_none_character() {
+	character = create_none_character()
+	optional_name = character?.name  // Returns String? (None)
+	optional_guild = character?.guild  // Returns String? (None)
+
+	// Test that we got None values
+	when name = optional_name {
+		assert(false, "Should have gotten None value for name")
+	} else {
+		// This is expected - we should get None
+	}
+
+	when guild = optional_guild {
+		assert(false, "Should have gotten None value for guild")
+	} else {
+		// This is expected - we should get None
+	}
+
+	print('Optional name: {optional_name}, Optional guild: {optional_guild}')
+}
+
+// Test deeply nested optional returns
+#[test]
+fn optional_return_nested_weapon_enchantment() {
+	character = create_master_wizard()
+	optional_enchant = character?.primary_weapon?.enchantment  // Returns String?
+
+	when enchant = optional_enchant {
+		assert(enchant == "Orc Bane", "Should get weapon enchantment")
+	} else {
+		assert(false, "Should have gotten enchantment")
+	}
+
+	print('Optional enchantment: {optional_enchant}')
+}
+
+#[test]
+fn optional_return_nested_none_weapon() {
+	character = create_rogue_character()  // No weapon
+	optional_enchant = character?.primary_weapon?.enchantment  // Returns String? (None)
+
+	when enchant = optional_enchant {
+		assert(false, "Should have gotten None for missing weapon enchantment")
+	} else {
+		// Expected - weapon is None so enchantment is None
+	}
+
+	print('Optional enchantment: {optional_enchant}')
+}
+
+// Test register vs memory location string scenarios
+#[test]
+fn register_to_memory_string_scenario() {
+	// Create local string variables (registers)
+	local_name = "LocalHero"
+	local_title = "Champion"
+	local_guild = "Adventurers Guild"
+
+	character = create_rogue_character()
+
+	// Memory location (character field) with register fallback
+	final_name = character?.name ?? local_name
+	final_title = character?.title ?? local_title
+	final_guild = character?.guild ?? local_guild
+
+	assert(final_name == "Shadowblade", 'should use character name')
+	assert(final_title == "Champion", 'should use register fallback for title')
+	assert(final_guild == "Adventurers Guild", 'should use register fallback for guild')
+
+	print('Name: {final_name}, Title: {final_title}, Guild: {final_guild}')
+}
+
+// Test spell incantation mixing scenarios
+#[test]
+fn spell_incantation_string_scenarios() {
+	character = create_master_wizard()
+
+	// Get spell incantations with different fallback types
+	spell1_words = character?.known_spells[0].incantation ?? "Abracadabra"
+	spell2_words = character?.known_spells[1].incantation ?? "Hocus Pocus"
+
+	fallback_incantation = "Alakazam"
+	spell3_words = character?.favorite_spell?.incantation ?? fallback_incantation
+
+	assert(spell1_words == "Ignis Maximus", 'should get fireball incantation')
+	assert(spell2_words == "Protego Totalum", 'should get shield incantation')
+	assert(spell3_words == "Lumos Perpetua", 'should get light incantation')
+
+	print('Spell words: {spell1_words}, {spell2_words}, {spell3_words}')
+}
+
+// Test method calls with string parameters and returns
+//#[test]
+fn method_calls_with_string_mixing() {
+	character = create_master_wizard()
+	weapon = create_legendary_weapon()
+
+	// Method returning String from struct
+	character_intro = character?.get_introduction() ?? "No introduction available"
+	weapon_display = weapon?.get_display_name() ?? "Unknown Item"
+	weapon_lore = weapon?.get_lore_text() ?? "No lore available"
+
+	assert(character_intro == "Gandalf of Order of the White Council: A wise wizard who has traveled Middle-earth for centuries", 'character intro should be complete')
+	assert(weapon_display == "Excalibur of Holy Light", 'weapon display should include enchantment')
+	assert(weapon_lore == "Forged in the fires of Mount Celestial by ancient dragon smiths", 'weapon lore should be available')
+
+	print('Intro: {character_intro}')
+	print('Weapon: {weapon_display}')
+	print('Lore: {weapon_lore}')
+}
+
+// Additional tests for String<N> storage vs String view mixing
+#[test]
+fn string_storage_to_view_comprehensive() {
+	wizard = create_master_wizard()
+	rogue = create_rogue_character()
+
+	// Memory (String<N>) to register (String view) scenarios
+	name_fallback = "Anonymous Hero"  // String view in register
+	guild_fallback = "No Guild"       // String view in register
+	title_fallback = "Untitled"       // String view in register
+
+	wizard_name = wizard?.name ?? name_fallback          // String<32> to String view
+	rogue_guild = rogue?.guild ?? guild_fallback         // String<64>? (None) to String view
+	rogue_title = rogue?.title ?? title_fallback         // String<16>? (None) to String view
+
+	assert(wizard_name == "Gandalf", 'should get wizard name from memory')
+	assert(rogue_guild == "No Guild", 'should get fallback from register')
+	assert(rogue_title == "Untitled", 'should get fallback from register')
+
+	print('Wizard: {wizard_name}, Rogue Guild: {rogue_guild}, Rogue Title: {rogue_title}')
+}
+
+//#[test]
+fn memory_to_memory_string_storage_mixing() {
+	wizard = create_master_wizard()
+	rogue = create_rogue_character()
+	weapon = create_legendary_weapon()
+
+	// Memory to memory scenarios with different String<N> sizes
+	result1 = wizard?.guild ?? rogue?.name ?? "Default"
+	result2 = rogue?.biography ?? weapon?.enchantment ?? "None"
+	result3 = weapon?.battle_cry ?? wizard?.title ?? "Silent"
+
+	assert(result1 == "Order of the White Council", 'should use wizard guild {result1}')
+	assert(result2 == "Holy Light", 'should use weapon enchantment: {result2}')
+	assert(result3 == "The Grey", 'should use wizard title: {result3}')
+
+	print('Result1: {result1}, Result2: {result2}, Result3: {result3}')
+}
+
+
+#[test]
+fn nested_string_storage_access_patterns() {
+	character = create_master_wizard()
+
+	// Deep nesting with different string storage sizes
+	spell_school = character?.known_spells[0].school ?? "Unknown"           // String<24>? to String view
+	spell_desc = character?.known_spells[2].description ?? "No description" // String<128>? (None) to String view
+	weapon_story = character?.primary_weapon?.origin_story ?? "No history"  // String<256>? to String view
+	weapon_cry = character?.primary_weapon?.battle_cry ?? "Silence"         // String<64>? (None) to String view
+
+	assert(spell_school == "Evocation", 'should get spell school')
+	assert(spell_desc == "No description", 'should use fallback for missing description')
+	assert(weapon_story == "An ancient Elvish blade from Gondolin", 'should get weapon story')
+	assert(weapon_cry == "Silence", 'should use fallback for missing battle cry')
+
+	print('School: {spell_school}, Desc: {spell_desc}')
+	print('Story: {weapon_story}, Cry: {weapon_cry}')
+}
+
+#[test]
+fn array_string_storage_comprehensive() {
+	character = create_master_wizard()
+
+	// Array access with various string storage sizes
+	spell_names = [
+		character?.known_spells[0].name ?? "Spell1",      // String<32>
+		character?.known_spells[1].name ?? "Spell2",      // String<32>
+		character?.known_spells[2].name ?? "Spell3",      // String<32>
+	]
+
+	spell_incantations = [
+		character?.known_spells[0].incantation ?? "Words1",  // String<64>
+		character?.known_spells[1].incantation ?? "Words2",  // String<64>
+		character?.known_spells[2].incantation ?? "Words3",  // String<64>
+	]
+
+	assert(spell_names[0] == "Fireball", 'first spell name')
+	assert(spell_names[1] == "Shield", 'second spell name')
+	assert(spell_names[2] == "Heal", 'third spell name')
+
+	assert(spell_incantations[0] == "Ignis Maximus", 'first incantation')
+	assert(spell_incantations[1] == "Protego Totalum", 'second incantation')
+	assert(spell_incantations[2] == "Sanitas Corporis", 'third incantation')
+
+	print('Spells: {spell_names[0]}, {spell_names[1]}, {spell_names[2]}')
+	print('Words: {spell_incantations[0]}, {spell_incantations[1]}, {spell_incantations[2]}')
+}
+
+#[test]
+fn string_storage_size_stress_test() {
+	character = create_master_wizard()
+	weapon = create_legendary_weapon()
+
+	// Mix different storage sizes in complex expressions
+	long_description = character?.biography ??                              // String<512>?
+	                  weapon?.origin_story ??                              // String<256>?
+	                  character?.known_spells[0].incantation ??            // String<64>
+	                  character?.primary_weapon?.name ??                   // String<48>
+	                  character?.name ??                                   // String<32>
+	                  character?.guild ??                                  // String<64>?
+	                  "No information available"                           // String view
+
+	assert(long_description == "A wise wizard who has traveled Middle-earth for centuries", 'should use character bio')
+	print('Long description: {long_description}')
+}
+
+#[test]
+fn method_returns_with_string_storage() {
+	character = create_master_wizard()
+	weapon = create_basic_weapon()  // Has no origin story
+
+	// Methods that return String views from String<N> fields
+	character_full_name = character?.get_full_name() ?? "Unnamed"
+	character_intro = character?.get_introduction() ?? "No introduction"
+	weapon_display = weapon?.get_display_name() ?? "No weapon"
+	weapon_lore = weapon?.get_lore_text() ?? "No lore"
+
+	assert(character_full_name == "The Grey Gandalf", 'should get full name')
+	assert(character_intro == "Gandalf of Order of the White Council: A wise wizard who has traveled Middle-earth for centuries", 'should get intro')
+	assert(weapon_display == "Iron Sword", 'should get weapon name without enchantment')
+	assert(weapon_lore == "No lore", 'should use fallback for missing lore')
+
+	print('Full name: {character_full_name}')
+	print('Intro: {character_intro}')
+	print('Weapon: {weapon_display}, Lore: {weapon_lore}')
+}
