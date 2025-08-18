@@ -1,0 +1,10 @@
+[package]
+name = "swamp-mir"
+version = "0.2.26"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Swamp MIR language"
+
+
+[dependencies]

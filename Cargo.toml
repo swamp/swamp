@@ -48,6 +48,7 @@ members = [
     "crates/refs",
     "crates/yini",
     "crates/vm-isa",
+    "crates/mir", "crates/lir",
     # Future projects
     # "crates/lexer",
     # "crates/parser-next",
