@@ -23,7 +23,7 @@ use crate::context::TypeContext;
 use crate::shared::SharedState;
 use crate::to_string::create_expr_resolved;
 use crate::types::TypeAnalyzeContext;
-use crate::variable::{MAX_VIRTUAL_REGISTER, VariableSlot};
+use crate::variable::{VariableSlot, MAX_VIRTUAL_REGISTER};
 use seq_map::SeqMap;
 use source_map_cache::SourceMap;
 use source_map_node::{FileId, Node, Span};
@@ -1108,7 +1108,7 @@ impl<'a> Analyzer<'a> {
                         ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                         node,
                     )
-                    .kind
+                        .kind
                 },
                 |function| {
                     let Function::Internal(internal_function) = &function else {
@@ -1142,14 +1142,14 @@ impl<'a> Analyzer<'a> {
                     ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                     node,
                 )
-                .kind
+                    .kind
             }
         } else {
             self.create_err(
                 ErrorKind::NoAssociatedFunction(ty.clone(), function_name.to_string()),
                 node,
             )
-            .kind
+                .kind
         }
     }
 
@@ -1554,8 +1554,7 @@ impl<'a> Analyzer<'a> {
         }
 
         if uncertain {
-            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {
-            } else {
+            if let TypeKind::Optional(_) = &*tv.resolved_type.kind {} else {
                 tv.resolved_type = self.shared.state.types.optional(&tv.resolved_type.clone());
             }
         }
@@ -2571,8 +2570,8 @@ impl<'a> Analyzer<'a> {
                     &any_context,
                     LocationSide::Rhs,
                 )
-                .expect_immutable()
-                .unwrap()
+                    .expect_immutable()
+                    .unwrap()
             } else {
                 let same_var = self.find_variable(&variable_binding.variable);
 
@@ -2813,8 +2812,7 @@ impl<'a> Analyzer<'a> {
         AssignmentMode::CopyBlittable
     }
 
-    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {
-    }
+    pub const fn check_mutable_assignment(&mut self, assignment_mode: AssignmentMode, node: &Node) {}
 
     pub const fn check_mutable_variable_assignment(
         &mut self,
@@ -4504,6 +4502,33 @@ impl<'a> Analyzer<'a> {
                     },
                 )
             }
+            "filter_mut" => {
+                let lambda_signature = Signature {
+                    parameters: vec![TypeForParameter {
+                        name: "element".to_string(),
+                        resolved_type: element_type.clone(),
+                        is_mutable: false,
+                        node: None,
+                    }],
+                    return_type: self.types().bool(),
+                };
+                let lambda_function_type = self.types().function(lambda_signature);
+                (
+                    IntrinsicFunction::TransformerFilterInPlace,
+                    Signature {
+                        parameters: vec![
+                            self_mut_type_param,
+                            TypeForParameter {
+                                name: "lambda".to_string(),
+                                resolved_type: lambda_function_type,
+                                is_mutable: false,
+                                node: None,
+                            },
+                        ],
+                        return_type: self.shared.state.types.slice_view(&element_type.clone()),
+                    },
+                )
+            }
             "find" => {
                 let lambda_signature = Signature {
                     parameters: vec![TypeForParameter {
@@ -4892,8 +4917,8 @@ impl<'a> Analyzer<'a> {
                 self.types()
                     .compatible_with(initializer_key_type, storage_key)
                     && self
-                        .types()
-                        .compatible_with(initializer_value_type, storage_value)
+                    .types()
+                    .compatible_with(initializer_value_type, storage_value)
             }
             _ => false,
         }

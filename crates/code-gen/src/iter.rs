@@ -2,15 +2,15 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
-use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::transformer::{Collection, Transformer, TransformerResult};
+use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
 use swamp_vm_types::types::{
-    BasicTypeKind, BasicTypeRef, Place, TypedRegister, VmType, pointer_type, u8_type, u32_type,
+    pointer_type, u32_type, u8_type, BasicTypeKind, BasicTypeRef, Place, TypedRegister, VmType,
 };
 use swamp_vm_types::{MemoryLocation, PatchPosition};
 use tracing::error;
@@ -173,6 +173,27 @@ impl CodeBuilder<'_> {
                 );
             }
             TransformerResult::VecFromSourceCollection => {
+                let skip_if_false_patch_position = self.builder.add_jmp_if_not_true_placeholder(
+                    &lambda_result,
+                    node,
+                    "skip the result if it is false",
+                );
+
+                let absolute_pointer = maybe_target_collection_pointer
+                    .as_ref()
+                    .expect("collection pointer should have been computed before lambda execution");
+
+                self.add_to_collection(
+                    node,
+                    source_collection_type,
+                    absolute_pointer,
+                    primary_variable,
+                );
+
+                self.builder.patch_jump_here(skip_if_false_patch_position);
+            }
+
+            TransformerResult::VecMutateSourceCollection => {
                 let skip_if_false_patch_position = self.builder.add_jmp_if_not_true_placeholder(
                     &lambda_result,
                     node,
@@ -626,6 +647,10 @@ impl CodeBuilder<'_> {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 FlagStateKind::TFlagIsTrueWhenSet
             }
+            Transformer::FilterMut => {
+                // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
+                FlagStateKind::TFlagIsTrueWhenSet
+            }
             Transformer::Find => {
                 // TODO: Bring this back //assert_eq!(in_value.size().0, 1); // bool
                 FlagStateKind::TFlagIsTrueWhenClear
@@ -743,6 +768,7 @@ impl CodeBuilder<'_> {
         match transformer {
             Transformer::For => false,
             Transformer::Filter => false,
+            Transformer::FilterMut => false,
             Transformer::Find => true,
             Transformer::While => true,
             Transformer::Map => false,

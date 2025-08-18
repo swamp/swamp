@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 use swamp_vm_isa::{
-    MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize,
+    MemoryAlignment, MemorySize, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SPARSE_ITERATOR_ALIGNMENT, SPARSE_ITERATOR_SIZE,
     STRING_ITERATOR_ALIGNMENT, STRING_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
@@ -15,6 +15,7 @@ use swamp_vm_types::prelude::{BasicType, BasicTypeId, BasicTypeKind, BasicTypeRe
 pub enum Transformer {
     For,
     Filter,
+    FilterMut,
     Find,
     Map,
     Any,
@@ -35,13 +36,16 @@ pub enum TransformerResult {
     Bool,
     VecWithLambdaResult,
     VecFromSourceCollection,
+    VecMutateSourceCollection,
     WrappedValueFromSourceCollection,
 }
+
 
 impl Transformer {
     pub(crate) const fn return_type(self) -> TransformerResult {
         match self {
             Self::Filter => TransformerResult::VecFromSourceCollection,
+            Self::FilterMut => TransformerResult::VecMutateSourceCollection,
             Self::FilterMap | Self::Map => TransformerResult::VecWithLambdaResult,
             Self::All | Self::Any => TransformerResult::Bool,
             Self::Find => TransformerResult::WrappedValueFromSourceCollection,

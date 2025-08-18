@@ -38,6 +38,7 @@ mod stepping
 mod string_basic
 mod string
 mod struct
+mod transformer_bugs
 mod transformer
 mod tuple
 mod unwrap

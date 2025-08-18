@@ -1,0 +1,108 @@
+type UnitId = Int
+
+enum Alliance {
+	West,
+	East,
+}
+
+impl Alliance {
+	fn opposite(self) -> Alliance {
+		match self {
+			West -> East,
+			East -> West,
+		}
+	}
+}
+
+enum ActionType {
+	Blank, // ZII-rule (Zero is initialization)
+	Move,
+	Attack,
+}
+
+struct Action {
+	type: ActionType,
+}
+
+enum Keyword {
+	EnterAction(Action),
+	Confused,
+}
+
+struct Unit {
+	id: UnitId,
+	alliance: Alliance,
+	keywords: Vec<Keyword;100>,
+}
+
+struct Game {
+	unit_turn_order: Vec<UnitId; 100>,
+	units_spawned: [UnitId: Unit; 100],
+}
+
+
+// Intentionally avoid using transformer to find keyword
+fn find_keyword(keywords: Vec<Keyword>, target_keyword: Keyword) -> Bool {
+	mut found = false
+	for k in keywords{
+		if k.discriminant() == target_keyword.discriminant() { found = true }
+	}
+	found
+}
+
+
+/// found by @catnipped
+#[test]
+fn filter_without_call() {
+	mut possible_targets: Vec<UnitId; 15> = []
+
+	game = Game {
+		unit_turn_order: [2, 1],
+		units_spawned: [
+			1: Unit { id: 1, alliance: West, .. },
+			2: Unit { id: 2, alliance: East, .. },
+		]
+	}
+
+	this_unit = game.units_spawned[1]
+
+	possible_targets = game.unit_turn_order.filter(|id| id != this_unit.id && game.units_spawned[id].alliance == this_unit.alliance.opposite())
+
+	assert(possible_targets.len() == 1, 'expected one in the opposite alliance {possible_targets.len()}')
+	assert(possible_targets[0] == 2, 'the target should be 2, but got {possible_targets}')
+}
+
+
+/// Found by @catnipped
+#[test]
+fn filter_with_call() {
+	mut possible_targets: Vec<UnitId; 15> = []
+
+	// Setup the game with two opponent units, one is Confused
+	game = Game {
+		unit_turn_order: [2, 1, 3],
+		units_spawned: [
+			1: Unit { id: 1, alliance: West, .. },
+			2: Unit { id: 2, alliance: East, keywords: [Confused] },
+			3: Unit { id: 3, alliance: East, .. },
+		]
+	}
+
+	this_unit = game.units_spawned[1]
+
+	// First we only keep the units of opposite alliance
+	possible_targets = game.unit_turn_order.filter(|id| id != this_unit.id && game.units_spawned[id].alliance == this_unit.alliance.opposite())
+	assert(possible_targets.len() == 2, 'expected two in the opposite alliance {possible_targets.len()}')
+
+	// Then we want want to keep those that are not confused
+	// BUG: This fails with VecOutOfCapacity
+	//possible_targets = possible_targets.filter(|id| !find_keyword(game.units_spawned[id].keywords, Keyword::Confused) )
+	//assert(possible_targets.len() == 1, 'expected one in the opposite alliance {possible_targets.len()} to not be confused')
+	//assert(possible_targets[0] == 3, 'the target should be 3, since id 2 is confused, but got {possible_targets}')
+
+	mut temp_possible_targets: Vec<UnitId; 15> = []
+	temp_possible_targets = possible_targets.filter(|id| !find_keyword(game.units_spawned[id].keywords, Keyword::Confused) )
+	assert(temp_possible_targets.len() == 1, 'expected one in the opposite alliance {temp_possible_targets.len()} to not be confused')
+	assert(temp_possible_targets[0] == 3, 'the target should be 3, since id 2 is confused, but got {temp_possible_targets}')
+}
+
