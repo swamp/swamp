@@ -269,6 +269,7 @@ impl CodeBuilder<'_> {
         } else {
             lhs_destination_storage_for_optional = self.allocate_frame_space_and_return_destination_to_it(
                 &left_optional_basic_type,
+                false,
                 node,
                 "?? left temp storage for tag + payload",
             );

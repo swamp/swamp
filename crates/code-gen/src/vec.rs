@@ -154,7 +154,6 @@ impl CodeBuilder<'_> {
             absolute_pointer_to_element.register(),
             &vec_header_ptr_reg,
             &index_int_reg,
-            gen_element_type.total_size,
             node,
             "lookup veclike subscript",
         );

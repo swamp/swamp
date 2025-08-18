@@ -74,6 +74,9 @@ fn filter_without_call() {
 
 
 /// Found by @catnipped
+/// when target vector is the same as the source vector for filter
+/// temp_possible_targets = possible_targets.filter()
+/// In the future there should be a `.filter_mut()` which mutates the vector directly
 #[test]
 fn filter_with_call() {
 	mut possible_targets: Vec<UnitId; 15> = []
@@ -95,14 +98,8 @@ fn filter_with_call() {
 	assert(possible_targets.len() == 2, 'expected two in the opposite alliance {possible_targets.len()}')
 
 	// Then we want want to keep those that are not confused
-	// BUG: This fails with VecOutOfCapacity
-	//possible_targets = possible_targets.filter(|id| !find_keyword(game.units_spawned[id].keywords, Keyword::Confused) )
-	//assert(possible_targets.len() == 1, 'expected one in the opposite alliance {possible_targets.len()} to not be confused')
-	//assert(possible_targets[0] == 3, 'the target should be 3, since id 2 is confused, but got {possible_targets}')
-
 	mut temp_possible_targets: Vec<UnitId; 15> = []
 	temp_possible_targets = possible_targets.filter(|id| !find_keyword(game.units_spawned[id].keywords, Keyword::Confused) )
 	assert(temp_possible_targets.len() == 1, 'expected one in the opposite alliance {temp_possible_targets.len()} to not be confused')
 	assert(temp_possible_targets[0] == 3, 'the target should be 3, since id 2 is confused, but got {temp_possible_targets}')
 }
-

@@ -454,7 +454,6 @@ impl InstructionBuilder<'_> {
         target: &TypedRegister,
         self_addr: &TypedRegister,
         index: &TypedRegister,
-        element_size: MemorySize,
         node: &Node,
         comment: &str,
     ) {
@@ -462,20 +461,14 @@ impl InstructionBuilder<'_> {
             self_addr.ty().kind,
             BasicTypeKind::InternalVecPointer(_)
         ));
+        */
 
-         */
-
-        let element_size_bytes = u32_to_bytes(element_size.0);
         self.state.add_instruction(
             OpCode::VecGet,
             &[
                 target.addressing(),
                 self_addr.addressing(),
                 index.addressing(),
-                element_size_bytes.0,
-                element_size_bytes.1,
-                element_size_bytes.2,
-                element_size_bytes.3,
             ],
             node,
             comment,

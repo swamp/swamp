@@ -103,6 +103,7 @@ impl CodeBuilder<'_> {
 
         let key_frame_location = self.allocate_frame_space_and_return_destination_to_it(
             key_type,
+            false,
             node,
             "key temporary storage",
         );

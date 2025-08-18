@@ -519,7 +519,6 @@ impl CodeBuilder<'_> {
                     value_addr_reg.register(),
                     &self_ptr_reg.ptr_reg,
                     zero_reg.register(),
-                    element_type.total_size,
                     node,
                     "lookup first entry in vec",
                 );
@@ -588,7 +587,6 @@ impl CodeBuilder<'_> {
                     temp_element_ptr.register(),
                     &self_ptr_reg.ptr_reg,
                     &key_region,
-                    element_type.total_size,
                     node,
                     "get vec element address",
                 );

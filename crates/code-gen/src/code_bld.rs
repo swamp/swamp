@@ -18,13 +18,13 @@ use swamp_semantic::{
 };
 use swamp_types::TypeKind;
 use swamp_vm_instr_build::{InstructionBuilder, PatchPosition};
-use swamp_vm_isa::aligner::{SAFE_ALIGNMENT, align};
+use swamp_vm_isa::aligner::{align, SAFE_ALIGNMENT};
 use swamp_vm_isa::{
-    ANY_HEADER_HASH_OFFSET, ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, FrameMemorySize,
-    MemoryOffset, MemorySize, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
+    FrameMemorySize, MemoryOffset, MemorySize, ANY_HEADER_HASH_OFFSET,
+    ANY_HEADER_PTR_OFFSET, ANY_HEADER_SIZE_OFFSET, REG_ON_FRAME_ALIGNMENT, REG_ON_FRAME_SIZE,
 };
 use swamp_vm_types::types::{
-    BasicTypeRef, Place, TypedRegister, VmType, b8_type, u8_type, u32_type,
+    b8_type, u32_type, u8_type, BasicTypeRef, Place, TypedRegister, VmType,
 };
 use swamp_vm_types::{AggregateMemoryLocation, FrameMemoryRegion, MemoryLocation, PointerLocation};
 use tracing::info;
@@ -329,6 +329,7 @@ impl CodeBuilder<'_> {
     pub fn allocate_frame_space_and_return_absolute_pointer_reg(
         &mut self,
         ty: &BasicTypeRef,
+        clear_it: bool,
         node: &Node,
         comment: &str,
     ) -> TypedRegister {
@@ -346,17 +347,22 @@ impl CodeBuilder<'_> {
             &format!("{comment}: set the allocated memory to pointer reg"),
         );
 
+        if clear_it {
+            self.builder.add_frame_memory_clear(temp.register.region(), node, &format!("{comment}: clear temporary memory"));
+        }
+
         temp.register
     }
 
     pub fn allocate_frame_space_and_return_pointer_location(
         &mut self,
         ty: &BasicTypeRef,
+        clear_it: bool,
         node: &Node,
         comment: &str,
     ) -> PointerLocation {
         let absolute_base_ptr_reg =
-            self.allocate_frame_space_and_return_absolute_pointer_reg(ty, node, comment);
+            self.allocate_frame_space_and_return_absolute_pointer_reg(ty, clear_it, node, comment);
         PointerLocation {
             ptr_reg: absolute_base_ptr_reg,
         }
@@ -365,11 +371,12 @@ impl CodeBuilder<'_> {
     pub fn allocate_frame_space_and_return_memory_location(
         &mut self,
         ty: &BasicTypeRef,
+        clear_it: bool,
         node: &Node,
         comment: &str,
     ) -> MemoryLocation {
         let absolute_base_ptr_reg =
-            self.allocate_frame_space_and_return_pointer_location(ty, node, comment);
+            self.allocate_frame_space_and_return_pointer_location(ty, clear_it, node, comment);
         MemoryLocation {
             ty: absolute_base_ptr_reg.ptr_reg.ty.clone(),
             base_ptr_reg: absolute_base_ptr_reg.ptr_reg,
@@ -380,10 +387,11 @@ impl CodeBuilder<'_> {
     pub fn allocate_frame_space_and_return_destination_to_it(
         &mut self,
         ty: &BasicTypeRef,
+        clear_it: bool,
         node: &Node,
         comment: &str,
     ) -> Place {
-        let location = self.allocate_frame_space_and_return_memory_location(ty, node, comment);
+        let location = self.allocate_frame_space_and_return_memory_location(ty, clear_it, node, comment);
         Place::new_location(location)
     }
 

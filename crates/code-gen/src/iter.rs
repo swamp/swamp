@@ -76,7 +76,18 @@ impl CodeBuilder<'_> {
         // Primary is the right most variable
         let primary_variable = &target_variables[target_variables.len() - 1];
 
+
         let hwm = self.temp_registers.save_mark();
+
+
+        let temp_index_reg_for_mut_source = match transformer.return_type() {
+            TransformerResult::VecMutateSourceCollection => {
+                let temp_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u32_type()), "mutate index");
+                self.builder.add_mov_32_immediate_value(temp_reg.register(), 0, node, "initialize index register to zero");
+                Some(temp_reg.register().clone())
+            }
+            _ => None
+        };
 
         // 1. Initialize the target collection if needed and compute collection pointer
         let maybe_target_collection_pointer = match transformer.return_type() {
@@ -136,13 +147,75 @@ impl CodeBuilder<'_> {
                 transformer_t_flag_state,
                 FlagStateKind::TFlagIsTrueWhenSet | FlagStateKind::TFlagIsTrueWhenClear
             ) {
-            // The P flag is set so we can act on it
-            let skip_early = self.builder.add_jmp_if_not_equal_polarity_placeholder(
-                &lambda_result,
-                &transformer_t_flag_state.polarity(),
-                node,
-                "skip early",
-            );
+            let skip_early = match transformer.return_type() {
+                TransformerResult::WrappedValueFromSourceCollection => {
+                    let skip_over_some_section = self.builder.add_jmp_if_not_true_placeholder(
+                        &lambda_result,
+                        node,
+                        "skip over setting Some section",
+                    );
+
+                    let destination_type = target_destination.ty();
+                    let BasicTypeKind::Optional(tagged_union) = &destination_type.kind else {
+                        panic!("expected optional {destination_type:?}");
+                    };
+
+                    let tag_some_value_reg = self.temp_registers.allocate(
+                        VmType::new_unknown_placement(u8_type()),
+                        "iterate over collection target",
+                    );
+
+                    self.builder.add_mov8_immediate(
+                        tag_some_value_reg.register(),
+                        1,
+                        node,
+                        "mark tag as Some",
+                    );
+
+                    let result_location = target_destination.memory_location_or_pointer_reg();
+
+                    self.builder.add_st8_using_ptr_with_offset(
+                        &result_location.unsafe_add_offset(tagged_union.tag_offset),
+                        tag_some_value_reg.register(),
+                        node,
+                        "store Tag value of (1) into memory",
+                    );
+
+                    // TODO: let payload_memory_location = result_location.unsafe_add_offset(tagged_union.payload_offset);
+                    let payload_memory_location = result_location.unsafe_add_offset(MemoryOffset(4));
+                    let payload_destination = Place::Memory(payload_memory_location);
+
+                    let source_location = Place::Register(primary_variable.clone());
+
+                    self.emit_store_value_to_memory_place(
+                        &payload_destination,
+                        &source_location,
+                        node,
+                        "copy result in place",
+                    );
+
+                    // The P flag is set so we can act on it
+                    let skip_early = self.builder.add_jump_placeholder(
+                        node,
+                        "skip early",
+                    );
+
+
+                    self.builder.patch_jump_here(skip_over_some_section);
+
+                    skip_early
+                }
+                _ => {
+                    // The P flag is set so we can act on it
+                    self.builder.add_jmp_if_not_equal_polarity_placeholder(
+                        &lambda_result,
+                        &transformer_t_flag_state.polarity(),
+                        node,
+                        "skip early",
+                    )
+                }
+            };
+
 
             Some(skip_early)
         } else {
@@ -200,16 +273,11 @@ impl CodeBuilder<'_> {
                     "skip the result if it is false",
                 );
 
-                let absolute_pointer = maybe_target_collection_pointer
-                    .as_ref()
-                    .expect("collection pointer should have been computed before lambda execution");
+                // TODO: have a subscript index and overwrite
+                let index_reg = temp_index_reg_for_mut_source.unwrap();
+                let pointer_to_entry_reg = self.temp_registers.allocate(VmType::new_contained_in_register(pointer_type()), "holds pointer to vec entry");
+                self.builder.add_vec_subscript(pointer_to_entry_reg.register(), source_collection_reg, &index_reg, node, "get pointer to element");
 
-                self.add_to_collection(
-                    node,
-                    source_collection_type,
-                    absolute_pointer,
-                    primary_variable,
-                );
 
                 self.builder.patch_jump_here(skip_if_false_patch_position);
             }
@@ -225,57 +293,10 @@ impl CodeBuilder<'_> {
         self.builder
             .patch_jump_here(iteration_complete_patch_position);
 
-        // 8. Finalize iteration, handling any post-processing (e.g., normalizing boolean results).
         if let Some(found_skip_early) = maybe_skip_early {
             self.builder.patch_jump_here(found_skip_early);
         }
 
-        match transformer.return_type() {
-            TransformerResult::Bool => {
-                // It is a transformer that returns a bool, lets store P flag as bool it
-            }
-            TransformerResult::WrappedValueFromSourceCollection => {
-                let destination_type = target_destination.ty();
-                let BasicTypeKind::Optional(tagged_union) = &destination_type.kind else {
-                    panic!("expected optional {destination_type:?}");
-                };
-
-                let tag_some_value_reg = self.temp_registers.allocate(
-                    VmType::new_unknown_placement(u8_type()),
-                    "iterate over collection target",
-                );
-
-                self.builder.add_mov8_immediate(
-                    tag_some_value_reg.register(),
-                    1,
-                    node,
-                    "mark tag as Some",
-                );
-
-                let result_location = target_destination.memory_location_or_pointer_reg();
-
-                self.builder.add_st8_using_ptr_with_offset(
-                    &result_location.unsafe_add_offset(tagged_union.tag_offset),
-                    tag_some_value_reg.register(),
-                    node,
-                    "store Tag value of (1) into memory",
-                );
-
-                // TODO: let payload_memory_location = result_location.unsafe_add_offset(tagged_union.payload_offset);
-                let payload_memory_location = result_location.unsafe_add_offset(MemoryOffset(4));
-                let payload_destination = Place::Memory(payload_memory_location);
-
-                let source_location = Place::Register(primary_variable.clone());
-
-                self.emit_store_value_to_memory_place(
-                    &payload_destination,
-                    &source_location,
-                    node,
-                    "copy result in place",
-                );
-            }
-            _ => {}
-        }
 
         self.temp_registers.restore_to_mark(hwm);
     }
@@ -294,6 +315,7 @@ impl CodeBuilder<'_> {
 
         let target_iterator_header_reg = self.allocate_frame_space_and_return_absolute_pointer_reg(
             &iterator_gen_type,
+            false,
             node,
             "allocate iterator header space",
         );

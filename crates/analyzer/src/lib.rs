@@ -4525,7 +4525,7 @@ impl<'a> Analyzer<'a> {
                                 node: None,
                             },
                         ],
-                        return_type: self.shared.state.types.slice_view(&element_type.clone()),
+                        return_type: self.types().unit(),
                     },
                 )
             }

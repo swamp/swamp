@@ -9,6 +9,7 @@ use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
 use swamp_vm_types::types::{int_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
+use tracing::warn;
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -72,6 +73,7 @@ impl CodeBuilder<'_> {
             let temp_materialization_target = self
                 .allocate_frame_space_and_return_destination_to_it(
                     &expr_basic_type,
+                    true, // we don't know if the type has padding
                     &expr.node,
                     "rvalue temporary materialization",
                 );
@@ -384,7 +386,7 @@ impl CodeBuilder<'_> {
                     );
                 }
                 Place::Discard => {
-                    panic!("unary operator always returns a value")
+                    warn!("unary operator always returns a value")
                 }
             },
             ExpressionKind::PostfixChain(start, chain) => {

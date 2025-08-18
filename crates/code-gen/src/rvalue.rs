@@ -24,6 +24,7 @@ impl CodeBuilder<'_> {
             // for scalar values, we need to materialize in a temp memory
             let memory_location = self.allocate_frame_space_and_return_memory_location(
                 &gen_key_type,
+                false, // do not need to clear, since scalar doesn't have padding
                 &aggregate_or_scalar_expr.node,
                 "temp space for scalar key",
             );
@@ -61,14 +62,15 @@ impl CodeBuilder<'_> {
     ) -> TypedRegister {
         if allow_temporary
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             // Expression needs temporary storage (like initializer lists)
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_memory = self.allocate_frame_space_and_return_destination_to_it(
                 &expr_basic_type,
+                false, // do not need to clear, since emit_initialize_memory happens below
                 &expr.node,
                 "temporary storage for expression that needs memory materialization",
             );
