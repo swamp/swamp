@@ -1,0 +1,7 @@
+[package]
+name = "hir"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+swamp-lir = { path = "../lir" }
