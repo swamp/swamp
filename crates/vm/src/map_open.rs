@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 use crate::memory::Memory;
-use crate::{TrapCode, Vm, get_reg, i16_from_u8s};
+use crate::{get_reg, i16_from_u8s, TrapCode, Vm};
 use crate::{set_reg, u16_from_u8s};
 use hashmap_mem::MapHeader;
 use std::ptr;
@@ -325,7 +325,8 @@ impl Vm {
             let iter_addr = get_reg!(self, target_map_iterator_header_reg);
 
             eprintln!(
-                "map_iter_init: iter_addr: {iter_addr:X} map_header_addr:{map_header_addr:X} key_size:{}, value_offset:{}, value_size:{} bucket_size:{} capacity:{}",
+                "pc: {:04X}, map_iter_init: iter_addr: {iter_addr:X} map_header_addr:{map_header_addr:X} key_size:{}, value_offset:{}, value_size:{} bucket_size:{} capacity:{}",
+                self.pc,
                 map_header.key_size,
                 map_header.value_offset,
                 map_header.value_size,
@@ -377,8 +378,8 @@ impl Vm {
                 let iter_addr = get_reg!(self, map_iterator_header_reg);
                 let index = (*map_iterator).index;
                 eprintln!(
-                    "map_iter_next_pair: iter_addr: {iter_addr:X} addr:{map_header_addr:X} index:{index} len: {}, capacity: {}",
-                    map_header.element_count, map_header.capacity
+                    "pc: {:04X}, map_iter_next_pair: iter_addr: {iter_addr:X} addr:{map_header_addr:X} index:{index} len: {}, capacity: {}",
+                    self.pc, map_header.element_count, map_header.capacity
                 );
             }
 
@@ -389,6 +390,7 @@ impl Vm {
             if !key_ptr.is_null() {
                 let key_offset = self.memory.get_heap_offset(key_ptr);
                 let value_offset = self.memory.get_heap_offset(value_ptr);
+                //eprintln!("pc: {:04X}, key_addr: {key_offset:X} value_offset:{value_offset:X}", self.pc);
 
                 set_reg!(self, target_key_reg, key_offset);
                 set_reg!(self, target_value_reg, value_offset);
@@ -401,7 +403,7 @@ impl Vm {
                 {
                     if self.debug_operations_enabled {
                         eprintln!(
-                            "map_iter_next_pair complete. jumping with offset {branch_offset}"
+                            "pc: {:04X}, map_iter_next_pair complete. jumping with offset {branch_offset}", self.pc
                         );
                     }
                 }

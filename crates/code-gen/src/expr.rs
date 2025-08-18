@@ -4,11 +4,11 @@
  */
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind};
+use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind, PostfixKind};
 use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
+use swamp_vm_types::types::{int_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
-use swamp_vm_types::types::{Place, TypedRegister, VmType, int_type};
 
 impl CodeBuilder<'_> {
     /// The expression materializer! Transforms high-level expressions into their code representation,
@@ -64,9 +64,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Place::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-                &mut self.state.layout_cache,
-                expr,
-            )
+            &mut self.state.layout_cache,
+            expr,
+        )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -499,31 +499,32 @@ impl CodeBuilder<'_> {
         layout_cache: &mut LayoutCache,
         expr: &Expression,
     ) -> bool {
-        let specific_kind_of_expression_needs_memory_target = match &expr.kind {
-            // TODO: Should have more robust check here. maybe check primitives instead and invert?
+        // TODO: Should have more robust check here
+        match &expr.kind {
+            // Why does it break if we check for is_reg_copy/scalar for these?
             ExpressionKind::EnumVariantLiteral(_, _)
             | ExpressionKind::TupleLiteral(_)
             | ExpressionKind::InitializerList(_, _)
-            | ExpressionKind::InitializerPairList(_, _) => true,
-            ExpressionKind::Option(_)
+            | ExpressionKind::InitializerPairList(_, _)
+            | ExpressionKind::Option(_)
             | ExpressionKind::AnonymousStructLiteral(_)
             | ExpressionKind::CoerceToAny(_) => true,
-            _ => false,
-        };
 
-        if specific_kind_of_expression_needs_memory_target {
-            true
-        } else {
-            // Easy to forget that you should also check if it's a function call with a return type requiring memory allocation
-            match &expr.kind {
-                ExpressionKind::InternalCall(_, _)
-                | ExpressionKind::HostCall(_, _)
-                | ExpressionKind::IntrinsicCallEx(_, _) => {
-                    let basic_type = layout_cache.layout(&expr.ty);
-                    !basic_type.is_reg_copy()
-                }
-                _ => false,
+            ExpressionKind::InternalCall(_, _)
+            | ExpressionKind::HostCall(_, _)
+            | ExpressionKind::IntrinsicCallEx(_, _) => {
+                let basic_type = layout_cache.layout(&expr.ty);
+                !basic_type.is_reg_copy()
             }
+
+            ExpressionKind::PostfixChain(_chain, postfixes) => {
+                // TODO: this seems to work, but it feels all kind of wrong
+                let last_is_member_call = matches!(postfixes[postfixes.len()-1].kind, PostfixKind::MemberCall(..));
+                let basic_type = layout_cache.layout(&expr.ty);
+                last_is_member_call && !basic_type.is_reg_copy()
+            }
+
+            _ => false,
         }
     }
 
@@ -559,6 +560,7 @@ impl CodeBuilder<'_> {
     ) {
         let output = Place::new_reg(target_register.clone());
 
-        self.emit_expression(&output, expr, ctx);
+
+        self.emit_expression(&output, expr, &ctx.clone().with_comment(comment));
     }
 }

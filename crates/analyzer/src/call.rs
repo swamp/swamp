@@ -69,7 +69,7 @@ impl Analyzer<'_> {
             // Check if this expression needs materialization for fixed-size types
             if self.needs_materialization(&resolved_expr) {
                 // and then check if it will be possible to create temporary storage:
-                if resolved_expr.ty.allowed_for_scoped_borrow() {
+                if resolved_expr.ty.can_be_materialized() {
                     ArgumentExpression::MaterializedExpression(resolved_expr)
                 } else {
                     // Error
@@ -190,7 +190,7 @@ impl Analyzer<'_> {
             ExpressionKind::VariableAccess(_) => false,
             ExpressionKind::BinaryOp(_) => true,
             ExpressionKind::UnaryOp(_) => true,
-            ExpressionKind::PostfixChain(_, _) => false,
+            ExpressionKind::PostfixChain(_, _) => true,
             ExpressionKind::CoerceOptionToBool(_) => false,
             ExpressionKind::CoerceIntToChar(_) => false,
             ExpressionKind::CoerceIntToByte(_) => false,

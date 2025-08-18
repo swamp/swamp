@@ -108,6 +108,12 @@ impl Type {
         self.flags.contains(TypeFlags::ALLOWED_FOR_SCOPED_BORROW)
     }
 
+    #[inline]
+    #[must_use]
+    pub const fn can_be_materialized(&self) -> bool {
+        self.flags.contains(TypeFlags::ALLOWED_FOR_SCOPED_BORROW) | self.flags.contains(TypeFlags::IS_STORAGE)
+    }
+
     /// Check if this type requires explicit collection storage allocation from caller
     /// This includes all aggregate types including optionals that need memory
     /// allocation and proper setup of the r0 register by the caller

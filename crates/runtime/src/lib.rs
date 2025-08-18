@@ -477,14 +477,12 @@ pub fn run_function_with_debug(
     run_options: &RunOptions,
 ) {
     vm.reset_minimal_stack_and_fp();
-    //vm.reset_debug();
+
     vm.state = VmState::Normal;
     vm.debug_opcodes_enabled = run_options.debug_opcodes_enabled;
     vm.debug_operations_enabled = run_options.debug_operations_enabled;
     vm.debug_stats_enabled = run_options.debug_stats_enabled;
     vm.set_pc(&function_to_run.start);
-
-    let mut debug_count = 0;
 
     let use_color = run_options.use_color;
 
@@ -573,6 +571,26 @@ pub fn run_function_with_debug(
 
         vm.step(host_function_callback);
 
+        /*
+        let start_map_addr = 0x1154A8;
+        let start_buckets = start_map_addr + MAP_BUCKETS_OFFSET.0;
+        let bucket_index = 61;
+        let bucket_size = 8156;
+        let value_offset_in_bucket = 8;
+        //let total_addr = start_buckets + bucket_index * bucket_size;
+        let total_addr = 0x1194C8;
+        //
+        let read = unsafe { slice::from_raw_parts(vm.memory().get_heap_const_ptr(total_addr as usize), 32) };
+        let data = read[0];
+        if data == 1 || (debug_count % 60) == 0 {
+            eprintln!("data: {read:?}");
+            if data == 1 {
+                vm.internal_trap(TrapCode::StoppedByTestHarness);
+            }
+        }
+        debug_count += 1;
+
+         */
 
         // Check if VM encountered a trap or panic and show source information
         if matches!(vm.state, VmState::Trap(_) | VmState::Panic(_)) {

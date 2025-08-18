@@ -130,6 +130,12 @@ impl Wind {
 	}
 }
 
+fn opposite(wind: Wind) -> Wind {
+	match wind {
+		West -> East,
+		East -> West,
+	}
+}
 
 struct SomeUnit {
 	wind: Wind,
@@ -152,4 +158,5 @@ fn temp_memory_for_enum_function_return() {
 	// no memory is allocated for the return register (r0)
 	// so it overwrites memory depending on the value in the temp register
 	function_that_uses_enum(store.wind.opposite())
+	//function_that_uses_enum(opposite(store.wind))
 }
