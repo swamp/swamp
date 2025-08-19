@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 mod pretty;
 
 /// A minimal LIR abstraction

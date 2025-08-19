@@ -51,7 +51,7 @@ members = [
     # new IR level
     "crates/hir",
     "crates/mir",
-    "crates/lir",
+    "crates/lir", "crates/lower-hir",
     # Future projects
     # "crates/lexer",
     # "crates/parser-next",

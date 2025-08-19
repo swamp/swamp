@@ -663,6 +663,7 @@ pub struct SliceViewType {
 
 #[derive(Debug, Clone)]
 pub struct VecType {
+    pub vec_type: TypeRef,
     pub element: TypeRef,
 }
 
@@ -795,7 +796,7 @@ impl Expression {
             ExpressionKind::UnaryOp(a) => a.left.debug_last_expression(),
             ExpressionKind::ForLoop(_, _, a) => a.debug_last_expression(),
             ExpressionKind::WhileLoop(_, a) => a.debug_last_expression(),
-            ExpressionKind::Block(block) => block.last().unwrap_or(self),
+            ExpressionKind::Block(block) => &block.tail,
             ExpressionKind::Match(a) => a.arms.last().unwrap().expression.debug_last_expression(),
             ExpressionKind::Guard(g) => g.last().unwrap().result.debug_last_expression(),
             ExpressionKind::If(_, a, _) => a.debug_last_expression(),
@@ -862,6 +863,12 @@ impl StartOfChainKind {
 }
 
 #[derive(Debug, Clone)]
+pub struct Block {
+    pub statements: Vec<Expression>,
+    pub tail: Box<Expression>,
+}
+
+#[derive(Debug, Clone)]
 pub enum ExpressionKind {
     // Access Lookup values
     ConstantAccess(ConstantRef),
@@ -919,7 +926,7 @@ pub enum ExpressionKind {
     ForLoop(ForPattern, Iterable, Box<Expression>),
     WhileLoop(BooleanExpression, Box<Expression>),
 
-    Block(Vec<Expression>),
+    Block(Block),
 
     // Match and compare
     Match(Match),

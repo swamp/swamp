@@ -1,0 +1,15 @@
+[package]
+name = "swamp-lower-hir"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/swamp/swamp"
+description = "Swamp lower to HIR"
+
+[dependencies]
+swamp-hir = { path = "../hir", features = ["debug-info"] }
+swamp-symbol = { path = "../symbol" }
+swamp-semantic = { path = "../semantic" }
+swamp-types = { path = "../types" }
+seq-map = "0.0.14"
+source-map-node = "0.0.1"

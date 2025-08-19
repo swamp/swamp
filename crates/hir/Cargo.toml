@@ -1,7 +1,10 @@
 [package]
-name = "hir"
+name = "swamp-hir"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-swamp-lir = { path = "../lir" }
+swamp-lir = { path = "../lir", features = ["debug-info"] }
+
+[features]
+debug-info = []
