@@ -1,6 +1,7 @@
 # swamp-hir
 
-HIR is Swamp’s High-level IR: it’s close to the language (ifs, fors, fields, indexing),
+HIR is Swamp’s High-level Intermediate Representation: it’s close to the language (ifs, fors,
+fields, indexing),
 but it’s flattened into simple, ordered variable assignments. Think of it as your source
 code after the sugar has been shaved off and the evaluation order nailed down.
 

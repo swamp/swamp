@@ -1,5 +1,7 @@
 # swamp-lir
 
+Swamp LIR – Low-Level Intermediate Representation.
+
 A tiny, machine-shaped low-level, 32-bit IR, mainly for the Swamp toolchain.
 This is not trying to compete with other IRs.
 It’s a pragmatic layer that makes it easy to target
