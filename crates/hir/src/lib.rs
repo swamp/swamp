@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use swamp_lir::FunctionId;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
@@ -44,11 +45,13 @@ pub struct Block {
 }
 
 
-impl Block {
-    pub fn print(self: &Self) {
+impl Display for Block {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         for statement in &self.statements {
-            eprintln!("{statement:?}");
+            writeln!(f, "{statement}")?;
         }
+
+        Ok(())
     }
 }
 
@@ -73,6 +76,49 @@ pub enum HCallTarget {
 pub struct RValue {
     pub id: NodeId,
     pub kind: RValueKind,
+}
+
+impl Display for RValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+impl Display for RValueKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Use { .. } => todo!(),
+            Self::Mov { src } => write!(f, "mov({src})")?,
+            Self::Neg { .. } => todo!(),
+            Self::Not { .. } => todo!(),
+            Self::Add { a, b } => write!(f, "{a} + {b}")?,
+            Self::Sub { .. } => todo!(),
+            Self::Mul { .. } => todo!(),
+            Self::SDiv { .. } => todo!(),
+            Self::SMod { .. } => todo!(),
+            Self::And { .. } => todo!(),
+            Self::Or { .. } => todo!(),
+            Self::Xor { .. } => todo!(),
+            Self::Shl { .. } => todo!(),
+            Self::LShr { .. } => todo!(),
+            Self::AShr { .. } => todo!(),
+            Self::CmpEq { .. } => todo!(),
+            Self::CmpNe { .. } => todo!(),
+            Self::CmpLt { .. } => todo!(),
+            Self::CmpLe { .. } => todo!(),
+            Self::CmpGt { a, b } => write!(f, "{a} > {b}")?,
+            Self::CmpGe { .. } => todo!(),
+            Self::NoneCoalesce { .. } => todo!(),
+            Self::AddrOf { .. } => todo!(),
+            Self::Cast { .. } => todo!(),
+            Self::Call { .. } => todo!(),
+            Self::IfExpr { .. } => todo!(),
+            Self::ArrayInit { .. } => todo!(),
+            Self::StructInit { .. } => todo!(),
+            Self::MapInit { .. } => todo!(),
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -158,6 +204,25 @@ pub struct Statement {
     pub node_id: NodeId,
 }
 
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match &self.kind {
+            StatementKind::Let { name, type_id, rhs } => {
+                writeln!(f, "{name:?}={rhs}")?;
+            }
+            StatementKind::Assign { dst, src } => {
+                writeln!(f, "{dst} <- {src}")?;
+            }
+            StatementKind::While { .. } => {}
+            StatementKind::ForRange { .. } => {}
+            StatementKind::ForArray { .. } => {}
+            StatementKind::ForMap { .. } => {}
+            StatementKind::ExprStmt { .. } => {}
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum StatementKind {
     Let { name: SymId, type_id: TypeId, rhs: RValue },
@@ -197,7 +262,7 @@ pub enum StatementKind {
         id: NodeId,
     },
 
-    ExprStmt { rv: RValue },               // side-effect-only expression
+    ExprStmt { rv: Expression },               // side-effect-only expression
 }
 
 #[derive(Clone, Debug)]
@@ -237,6 +302,26 @@ pub struct Place {
     pub id: NodeId,
     pub kind: PlaceKind,
 }
+impl Display for Place {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+
+impl Display for PlaceKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlaceKind::Var { sym } => {
+                write!(f, "var({sym:?})")?;
+            }
+            PlaceKind::Field { .. } => {}
+            PlaceKind::Index { .. } => {}
+            PlaceKind::Deref { .. } => {}
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum PlaceKind {
@@ -250,6 +335,29 @@ pub enum PlaceKind {
 pub struct Atom {
     pub kind: AtomKind,
     pub id: NodeId,
+}
+
+impl Display for Atom {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.kind)
+    }
+}
+
+
+impl Display for AtomKind {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Var { sym } => {
+                write!(f, "{sym:?}")
+            }
+            Self::LitI32 { value } => write!(f, "{value}_i32"),
+            Self::LitF32 { .. } => todo!(),
+            Self::LitBool { .. } => todo!(),
+            Self::LitNone => todo!(),
+            Self::LitU8 { .. } => todo!(),
+            Self::LitString { .. } => todo!(),
+        }
+    }
 }
 
 #[derive(Clone, Debug)]

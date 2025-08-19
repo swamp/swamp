@@ -1,6 +1,6 @@
 use seq_map::SeqMap;
 use source_map_node::Node;
-use swamp_hir::{Atom, AtomKind, Expression, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind, RuntimeOp, StatementKind, SymId, TypeId};
+use swamp_hir::{Atom, AtomKind, Expression, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind, RuntimeOp, Statement, StatementKind, SymId, TypeId};
 use swamp_semantic::{AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, Block, ExpressionKind, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::{AnonymousStructType, TypeCache};
@@ -203,7 +203,32 @@ impl LowerHir<'_> {
                  */
             }
 
-            _ => todo!("wrong {:?}", expr.kind),
+            ExpressionKind::Block(block) => {
+                if let Some((last, statements)) = block.split_last() {
+                    for x in statements {
+                        self.lower_statement(x, block_builder);
+                    }
+
+                    self.lower_statement(last, block_builder)
+                } else {
+                    if block.is_empty() {} else {
+                        self.lower_statement(&block.first().unwrap(), block_builder)
+                    }
+                }
+            }
+
+            _ => {
+                let converted_expr = self.lower_expression(&expr, block_builder);
+                let kind = StatementKind::ExprStmt {
+                    rv: converted_expr,
+                };
+
+                let node_id = self.node_gen.create_node_id(&expr.node);
+                block_builder.push_stmt(Statement {
+                    kind,
+                    node_id,
+                })
+            }
         }
     }
 
@@ -554,10 +579,30 @@ impl LowerHir<'_> {
             ExpressionKind::Option(_) => todo!(),
             ExpressionKind::ForLoop(_, _, _) => todo!(),
             ExpressionKind::WhileLoop(_, _) => todo!(),
-            ExpressionKind::Block(_) => todo!(),
+            ExpressionKind::Block(block) => {
+                if let Some((last, statements)) = block.split_last() {
+                    for x in statements {
+                        self.lower_statement(x, block_builder);
+                    }
+
+                    self.lower_expression(last, block_builder)
+                } else {
+                    self.lower_expression(&block.first().unwrap(), block_builder)
+                }
+            }
             ExpressionKind::Match(_) => todo!(),
             ExpressionKind::Guard(_) => todo!(),
-            ExpressionKind::If(_, _, _) => todo!(),
+            ExpressionKind::If(condition, truth_expr, false_expr) => {
+                let condition_atom = self.lower_atom(&condition.expression, block_builder);
+                let truth_block = self.lower_block_expressions(&vec![*truth_expr.clone()]);
+                let false_block = self.lower_block_expressions(&vec![*false_expr.as_ref().unwrap().clone()]);
+
+                Expression::IfExpr {
+                    cond: condition_atom,
+                    then_: truth_block,
+                    else_: false_block,
+                }
+            }
             ExpressionKind::When(_, _, _) => todo!(),
             ExpressionKind::TupleDestructuring(_, _, _) => todo!(),
             ExpressionKind::Lambda(_, _) => todo!(),

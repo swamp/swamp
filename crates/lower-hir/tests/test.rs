@@ -6,6 +6,11 @@ fn test_compile() {
     let (program, module_ref, _source_map) = swamp_compile::compile_string(r#"
         a = 3
         b = a + 88
+        if a > 3 {
+           c = 3
+        } else {
+
+        }
     "#, &RunMode::Deployed);
     assert!(program.state.errors.is_empty(), "was errors");
 
@@ -14,6 +19,6 @@ fn test_compile() {
     let ExpressionKind::Block(block_expressions) = &module_ref.main_expression.as_ref().unwrap().expression.kind  else {
         panic!("no block")
     };
-    let statement = lower_hir.lower_block_expressions(block_expressions);
-    statement.print();
+    let block = lower_hir.lower_block_expressions(block_expressions);
+    eprintln!("block: {block}");
 }
