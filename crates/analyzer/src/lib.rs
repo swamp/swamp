@@ -5280,6 +5280,7 @@ impl<'a> Analyzer<'a> {
             | TypeKind::DynamicLengthVecView(element_type)
             | TypeKind::SliceView(element_type) => {
                 let vec_type = VecType {
+                    vec_type: collection_type.clone(),
                     element: element_type.clone(),
                 };
 
@@ -5310,6 +5311,7 @@ impl<'a> Analyzer<'a> {
                 self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
 
                 let error_vec_type = VecType {
+                    vec_type: collection_type.clone(),
                     element: self.types().unit(),
                 };
 
@@ -5341,6 +5343,7 @@ impl<'a> Analyzer<'a> {
             | TypeKind::DynamicLengthVecView(element_type)
             | TypeKind::SliceView(element_type) => {
                 let vec_type = VecType {
+                    vec_type: collection_type.clone(),
                     element: element_type.clone(),
                 };
 
@@ -5358,6 +5361,7 @@ impl<'a> Analyzer<'a> {
                 self.add_err_resolved(ErrorKind::CanNotSubscriptWithThatType, node);
 
                 let error_vec_type = VecType {
+                    vec_type: collection_type.clone(),
                     element: self.types().unit(),
                 };
 
