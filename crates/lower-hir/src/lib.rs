@@ -1,9 +1,9 @@
 use seq_map::SeqMap;
 use source_map_node::Node;
-use swamp_hir::{Atom, AtomKind, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind, RuntimeOp, StatementKind, SymId, TypeId};
-use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Block, ExpressionKind, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind};
+use swamp_hir::{Atom, AtomKind, Expression, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind, RuntimeOp, StatementKind, SymId, TypeId};
+use swamp_semantic::{AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, Block, ExpressionKind, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
-use swamp_types::prelude::TypeCache;
+use swamp_types::prelude::{AnonymousStructType, TypeCache};
 use swamp_types::{TypeKind, TypeRef};
 
 pub struct BlockBuilder {
@@ -163,22 +163,111 @@ impl LowerHir<'_> {
             node_id: self.node_gen.create_node_id(&sema_blk.tail.node),
         }
     }
-    pub fn lower_statement(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) {}
+
+    pub fn lower_block_expressions(&mut self, expressions: &Vec<swamp_semantic::Expression>) -> swamp_hir::Block {
+        let mut bb = BlockBuilder::new();
+
+
+        for s in expressions {
+            self.lower_statement(s, &mut bb);
+        }
+
+
+        swamp_hir::Block {
+            statements: bb.into_vec(),
+            tail: Box::new(Expression::Atom(Atom { kind: AtomKind::LitBool { value: false }, id: NodeId(0) })),
+            node_id: NodeId(0),
+        }
+    }
+
+    pub fn lower_statement(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) {
+        match &expr.kind {
+            ExpressionKind::VariableDefinition(variable, expression) => {
+                let node_id = self.node_gen.create_node_id(&variable.name);
+                let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_sym_id(variable.symbol_id);
+                let type_id = self.type_id_from_ref(&variable.resolved_type);
+                let rhs_atom = self.lower_rvalue(expression, block_builder);
+                block_builder.push_let(sym_id, type_id, rhs_atom, node_id);
+                /*
+                let statement_kind = StatementKind::Let {
+                    name: sym_id,
+                    type_id: TypeId(0),
+                    rhs: rhs_atom,
+                };
+
+                Some(Statement {
+                    kind: statement_kind,
+                    node_id,
+                })
+
+                 */
+            }
+
+            _ => todo!("wrong {:?}", expr.kind),
+        }
+    }
+
+    pub fn lower_struct_literal(&mut self, anon_struct_type: &AnonymousStructType, struct_lit: &AnonymousStructLiteral, block_builder: &mut BlockBuilder) -> RValueKind {
+        let field_count_in_struct_type = anon_struct_type.field_name_sorted_fields.len();
+        let mut fields = vec![None; field_count_in_struct_type];
+
+        for (index, _maybe_node, field_init_value_expression) in &struct_lit.source_order_expressions {
+            let atom = self.lower_atom(&field_init_value_expression, block_builder);
+            fields[*index] = Some(atom);
+        }
+
+        RValueKind::StructInit {
+            ty: self.type_id_from_ref(&struct_lit.struct_like_type),
+            fields,
+        }
+    }
 
     pub fn lower_rvalue(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) -> swamp_hir::RValue {
+        let node_id = self.node_gen.create_node_id(&expr.node);
+
+        let kind = match &expr.kind {
+            ExpressionKind::AnonymousStructLiteral(struct_lit) => {
+                let TypeKind::AnonymousStruct(anon_struct_type) = &*struct_lit.struct_like_type.kind else {
+                    panic!("internal error, wrong anon type");
+                };
+                self.lower_struct_literal(anon_struct_type, struct_lit, block_builder)
+            }
+            ExpressionKind::NamedStructLiteral(struct_lit_expr) => {
+                let ExpressionKind::AnonymousStructLiteral(struct_lit) = &struct_lit_expr.kind else {
+                    panic!("internal error, wrong anon type");
+                };
+                let TypeKind::AnonymousStruct(anon_struct_type) = &*struct_lit.struct_like_type.kind else {
+                    panic!("internal error, wrong anon type");
+                };
+
+                self.lower_struct_literal(anon_struct_type, struct_lit, block_builder)
+            }
+            ExpressionKind::EnumVariantLiteral(_, _) => {
+                todo!()
+            }
+            ExpressionKind::TupleLiteral(_) => {
+                todo!()
+            }
+            _ => {
+                let x = self.lower_atom(expr, block_builder);
+                RValueKind::Mov { src: x }
+            }
+        };
+
         RValue {
-            id: NodeId(0),
-            kind: RValueKind::Mov { src: Atom { kind: AtomKind::Var { sym: SymId(0) }, id: NodeId(0) } },
+            id: node_id,
+            kind,
         }
     }
 
     pub fn lower_atom(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) -> swamp_hir::Atom {
+        let node_id = self.node_gen.create_node_id(&expr.node);
         match &expr.kind {
             ExpressionKind::ConstantAccess(const_access) => {
                 let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_top_sym_id(const_access.symbol_id);
                 let node_id = self.node_gen.create_node_id(&const_access.name);
-                swamp_hir::Atom {
-                    kind: swamp_hir::AtomKind::Var {
+                Atom {
+                    kind: AtomKind::Var {
                         sym: sym_id,
                     },
                     id: node_id,
@@ -187,8 +276,8 @@ impl LowerHir<'_> {
             ExpressionKind::VariableAccess(var_access) => {
                 let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_sym_id(var_access.symbol_id);
                 let node_id = self.node_gen.create_node_id(&var_access.name);
-                swamp_hir::Atom {
-                    kind: swamp_hir::AtomKind::Var {
+                Atom {
+                    kind: AtomKind::Var {
                         sym: sym_id,
                     },
                     id: node_id,
@@ -207,8 +296,8 @@ impl LowerHir<'_> {
                     node_id,
                 );
 
-                swamp_hir::Atom {
-                    kind: swamp_hir::AtomKind::Var {
+                Atom {
+                    kind: AtomKind::Var {
                         sym: let_variable_sym_id,
                     },
                     id: node_id,
@@ -227,8 +316,8 @@ impl LowerHir<'_> {
                     node_id,
                 );
 
-                swamp_hir::Atom {
-                    kind: swamp_hir::AtomKind::Var {
+                Atom {
+                    kind: AtomKind::Var {
                         sym: let_variable_sym_id,
                     },
                     id: node_id,
@@ -249,16 +338,54 @@ impl LowerHir<'_> {
             ExpressionKind::VariableReassignment(_, _) => todo!(),
             ExpressionKind::Assignment(_, _) => todo!(),
             ExpressionKind::CompoundAssignment(_, _, _) => todo!(),
-            ExpressionKind::AnonymousStructLiteral(_) => todo!(),
-            ExpressionKind::NamedStructLiteral(_) => todo!(),
-            ExpressionKind::FloatLiteral(_) => todo!(),
-            ExpressionKind::NoneLiteral => todo!(),
-            ExpressionKind::IntLiteral(_) => todo!(),
-            ExpressionKind::ByteLiteral(_) => todo!(),
-            ExpressionKind::StringLiteral(_) => todo!(),
-            ExpressionKind::BoolLiteral(_) => todo!(),
-            ExpressionKind::EnumVariantLiteral(_, _) => todo!(),
-            ExpressionKind::TupleLiteral(_) => todo!(),
+            ExpressionKind::FloatLiteral(fixed_point) => {
+                Atom {
+                    kind: AtomKind::LitF32 { value: fixed_point.inner() },
+                    id: node_id,
+                }
+            }
+            ExpressionKind::NoneLiteral => {
+                Atom {
+                    kind: AtomKind::LitNone,
+                    id: node_id,
+                }
+            }
+            ExpressionKind::IntLiteral(int_lit) => {
+                Atom {
+                    kind: AtomKind::LitI32 { value: *int_lit },
+                    id: node_id,
+                }
+            }
+            ExpressionKind::ByteLiteral(byte_literal) => {
+                Atom {
+                    kind: AtomKind::LitU8 { value: *byte_literal },
+                    id: node_id,
+                }
+            }
+            ExpressionKind::BoolLiteral(bool_literal) => {
+                Atom {
+                    kind: AtomKind::LitBool { value: *bool_literal },
+                    id: node_id,
+                }
+            }
+            ExpressionKind::StringLiteral(str_literal) => {
+                Atom {
+                    kind: AtomKind::LitString { value: str_literal.clone() },
+                    id: node_id,
+                }
+            }
+            ExpressionKind::AnonymousStructLiteral(struct_lit) => {
+                panic!("struct literal not atom")
+            }
+            ExpressionKind::NamedStructLiteral(_) => {
+                panic!("named struct literal not atom")
+            }
+            ExpressionKind::EnumVariantLiteral(_, _) => {
+                panic!("enum variant literal not atom")
+            }
+            ExpressionKind::TupleLiteral(_) => {
+                panic!("tuple literal not atom")
+            }
             ExpressionKind::InitializerList(_, _) => todo!(),
             ExpressionKind::InitializerPairList(_, _) => todo!(),
             ExpressionKind::Option(_) => todo!(),
@@ -272,7 +399,7 @@ impl LowerHir<'_> {
             ExpressionKind::TupleDestructuring(_, _, _) => todo!(),
             ExpressionKind::Lambda(_, _) => todo!(),
             ExpressionKind::BorrowMutRef(_) => todo!(),
-            ExpressionKind::Error(_) => todo!(),
+            ExpressionKind::Error(_) => panic!("should not be lowering if there are errors"),
         }
     }
 
@@ -282,16 +409,16 @@ impl LowerHir<'_> {
 
         match &unary_operator.kind {
             UnaryOperatorKind::Not => {
-                swamp_hir::RValue {
-                    kind: swamp_hir::RValueKind::Not {
+                RValue {
+                    kind: RValueKind::Not {
                         x: left,
                     },
                     id: node_id,
                 }
             }
             UnaryOperatorKind::Negate => {
-                swamp_hir::RValue {
-                    kind: swamp_hir::RValueKind::Neg {
+                RValue {
+                    kind: RValueKind::Neg {
                         x: left,
                     },
                     id: node_id,
@@ -307,92 +434,92 @@ impl LowerHir<'_> {
 
         let kind = match &binary_operator.kind {
             BinaryOperatorKind::Add => {
-                swamp_hir::RValueKind::Add {
+                RValueKind::Add {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::Subtract => {
-                swamp_hir::RValueKind::Sub {
+                RValueKind::Sub {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::Multiply => {
-                swamp_hir::RValueKind::Mul {
+                RValueKind::Mul {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::Divide => {
-                swamp_hir::RValueKind::SDiv {
+                RValueKind::SDiv {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::Modulo => {
-                swamp_hir::RValueKind::SMod {
+                RValueKind::SMod {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::LogicalOr => {
-                swamp_hir::RValueKind::Or {
+                RValueKind::Or {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::LogicalAnd => {
-                swamp_hir::RValueKind::And {
+                RValueKind::And {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::Equal => {
-                swamp_hir::RValueKind::CmpEq {
+                RValueKind::CmpEq {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::NotEqual => {
-                swamp_hir::RValueKind::CmpNe {
+                RValueKind::CmpNe {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::LessThan => {
-                swamp_hir::RValueKind::CmpLt {
+                RValueKind::CmpLt {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::LessEqual => {
-                swamp_hir::RValueKind::CmpLe {
+                RValueKind::CmpLe {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::GreaterThan => {
-                swamp_hir::RValueKind::CmpGt {
+                RValueKind::CmpGt {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::GreaterEqual => {
-                swamp_hir::RValueKind::CmpGe {
+                RValueKind::CmpGe {
                     a: left,
                     b: right,
                 }
             }
             BinaryOperatorKind::NoneCoalesce => {
-                swamp_hir::RValueKind::NoneCoalesce {
+                RValueKind::NoneCoalesce {
                     a: left,
                     b: right,
                 }
             }
         };
 
-        swamp_hir::RValue {
+        RValue {
             kind,
             id: node_id,
         }
@@ -408,7 +535,6 @@ impl LowerHir<'_> {
             ExpressionKind::IntrinsicCallEx(_, _) => todo!(),
             ExpressionKind::InternalCall(_, _) => todo!(),
             ExpressionKind::HostCall(_, _) => todo!(),
-            ExpressionKind::VariableDefinition(_, _) => todo!(),
             ExpressionKind::VariableDefinitionLValue(_, _) => todo!(),
             ExpressionKind::VariableReassignment(_, _) => todo!(),
             ExpressionKind::Assignment(_, _) => todo!(),
@@ -437,7 +563,11 @@ impl LowerHir<'_> {
             ExpressionKind::Lambda(_, _) => todo!(),
             ExpressionKind::BorrowMutRef(_) => todo!(),
             ExpressionKind::Error(_) => todo!(),
-            _ => todo!(),
+            ExpressionKind::ConstantAccess(_) => todo!(),
+            ExpressionKind::VariableAccess(_) => todo!(),
+            ExpressionKind::BinaryOp(_) => todo!(),
+            ExpressionKind::UnaryOp(_) => todo!(),
+            ExpressionKind::VariableDefinition(_, _) => todo!(),
         }
     }
 

@@ -13,3 +13,7 @@ swamp-semantic = { path = "../semantic" }
 swamp-types = { path = "../types" }
 seq-map = "0.0.14"
 source-map-node = "0.0.1"
+
+[dev-dependencies]
+swamp-compile = { path = "../compile" }
+swamp-dep-loader = { path = "../dep-loader" }

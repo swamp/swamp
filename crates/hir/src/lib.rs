@@ -43,6 +43,15 @@ pub struct Block {
     pub node_id: NodeId,
 }
 
+
+impl Block {
+    pub fn print(self: &Self) {
+        for statement in &self.statements {
+            eprintln!("{statement:?}");
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum RuntimeOp {
     MapGetAddr,
@@ -122,7 +131,7 @@ pub enum RValueKind {
 
     StructInit {
         ty: TypeId,
-        fields: Vec<(SymId, Atom)>,
+        fields: Vec<Option<Atom>>,
     },
 
     MapInit {
@@ -249,6 +258,9 @@ pub enum AtomKind {
     LitI32 { value: i32 },
     LitF32 { value: i32 },
     LitBool { value: bool },
+    LitNone,
+    LitU8 { value: u8 },
+    LitString { value: String },
 }
 
 
