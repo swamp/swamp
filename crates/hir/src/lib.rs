@@ -1,20 +1,23 @@
-use std::fmt::{Display, Formatter};
-use swamp_lir::FunctionId;
+use swamp_ir_shared::{FunctionId, TypeId};
+
+mod pretty;
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct SymId(pub u32);
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct TypeId(pub u32);
 
 #[cfg(feature = "debug-info")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct NodeId(pub u32);
 
+impl NodeId {
+    pub fn default() -> NodeId {
+        NodeId(0)
+    }
+}
+
 #[cfg(not(feature = "debug-info"))]
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, Default)]
 pub struct NodeId; // zero-sized in non-debug builds
-
 
 #[derive(Debug)]
 pub struct Module {
@@ -36,7 +39,6 @@ pub struct Param {
     pub ty: TypeId,
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Block {
     pub statements: Vec<Statement>,
@@ -44,21 +46,9 @@ pub struct Block {
     pub node_id: NodeId,
 }
 
-
-impl Display for Block {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        for statement in &self.statements {
-            writeln!(f, "{statement}")?;
-        }
-
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum RuntimeOp {
     MapGetAddr,
-
 }
 
 #[derive(Clone, Debug)]
@@ -78,97 +68,128 @@ pub struct RValue {
     pub kind: RValueKind,
 }
 
-impl Display for RValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-impl Display for RValueKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Use { .. } => todo!(),
-            Self::Mov { src } => write!(f, "mov({src})")?,
-            Self::Neg { .. } => todo!(),
-            Self::Not { .. } => todo!(),
-            Self::Add { a, b } => write!(f, "{a} + {b}")?,
-            Self::Sub { .. } => todo!(),
-            Self::Mul { .. } => todo!(),
-            Self::SDiv { .. } => todo!(),
-            Self::SMod { .. } => todo!(),
-            Self::And { .. } => todo!(),
-            Self::Or { .. } => todo!(),
-            Self::Xor { .. } => todo!(),
-            Self::Shl { .. } => todo!(),
-            Self::LShr { .. } => todo!(),
-            Self::AShr { .. } => todo!(),
-            Self::CmpEq { .. } => todo!(),
-            Self::CmpNe { .. } => todo!(),
-            Self::CmpLt { .. } => todo!(),
-            Self::CmpLe { .. } => todo!(),
-            Self::CmpGt { a, b } => write!(f, "{a} > {b}")?,
-            Self::CmpGe { .. } => todo!(),
-            Self::NoneCoalesce { .. } => todo!(),
-            Self::AddrOf { .. } => todo!(),
-            Self::Cast { .. } => todo!(),
-            Self::Call { .. } => todo!(),
-            Self::IfExpr { .. } => todo!(),
-            Self::ArrayInit { .. } => todo!(),
-            Self::StructInit { .. } => todo!(),
-            Self::MapInit { .. } => todo!(),
-        }
-        Ok(())
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum RValueKind {
     // Loads / moves
-    Use { place: Place },               // read an lvalue as a value
-    Mov { src: Atom },                  // just forward an atom (often optimized away)
+    Use {
+        place: Place,
+    }, // read an lvalue as a value
+    Mov {
+        src: Atom,
+    }, // just forward an atom (often optimized away)
 
-    Neg { x: Atom },                    // arithmetic negate
-    Not { x: Atom },                    // bitwise/logical not (typed)
+    Neg {
+        x: Atom,
+    }, // arithmetic negate
+    Not {
+        x: Atom,
+    }, // bitwise/logical not (typed)
 
     // Binary ops (operands are Atoms; signedness/width come from types)
 
     // Arithmetic
-    Add { a: Atom, b: Atom },
-    Sub { a: Atom, b: Atom },
-    Mul { a: Atom, b: Atom },
-    SDiv { a: Atom, b: Atom },
-    SMod { a: Atom, b: Atom },
+    Add {
+        a: Atom,
+        b: Atom,
+    },
+    Sub {
+        a: Atom,
+        b: Atom,
+    },
+    Mul {
+        a: Atom,
+        b: Atom,
+    },
+    SDiv {
+        a: Atom,
+        b: Atom,
+    },
+    SMod {
+        a: Atom,
+        b: Atom,
+    },
 
     // Logical
-    And { a: Atom, b: Atom },
-    Or { a: Atom, b: Atom },
+    And {
+        a: Atom,
+        b: Atom,
+    },
+    Or {
+        a: Atom,
+        b: Atom,
+    },
 
     // Bit
-    Xor { a: Atom, b: Atom },
-    Shl { a: Atom, b: Atom },           // shift amount is Atom (usually small imm)
-    LShr { a: Atom, b: Atom },           // logical right shift
-    AShr { a: Atom, b: Atom },           // arithmetic right shift
+    Xor {
+        a: Atom,
+        b: Atom,
+    },
+    Shl {
+        a: Atom,
+        b: Atom,
+    }, // shift amount is Atom (usually small imm)
+    LShr {
+        a: Atom,
+        b: Atom,
+    }, // logical right shift
+    AShr {
+        a: Atom,
+        b: Atom,
+    }, // arithmetic right shift
 
     // Comparisons (result is Bool)
-    CmpEq { a: Atom, b: Atom },
-    CmpNe { a: Atom, b: Atom },
-    CmpLt { a: Atom, b: Atom },
-    CmpLe { a: Atom, b: Atom },
-    CmpGt { a: Atom, b: Atom },
-    CmpGe { a: Atom, b: Atom },
+    CmpEq {
+        a: Atom,
+        b: Atom,
+    },
+    CmpNe {
+        a: Atom,
+        b: Atom,
+    },
+    CmpLt {
+        a: Atom,
+        b: Atom,
+    },
+    CmpLe {
+        a: Atom,
+        b: Atom,
+    },
+    CmpGt {
+        a: Atom,
+        b: Atom,
+    },
+    CmpGe {
+        a: Atom,
+        b: Atom,
+    },
 
     // Conversion
-    NoneCoalesce { a: Atom, b: Atom },
+    NoneCoalesce {
+        a: Atom,
+        b: Atom,
+    },
 
     // Addressing / casts (no memory effects here)
-    AddrOf { place: Place },
-    Cast { expr: Atom, to: TypeId },     // implicit casts should be explicit
+    AddrOf {
+        place: Place,
+    },
+    Cast {
+        expr: Atom,
+        to: TypeId,
+    }, // implicit casts should be explicit
 
     // Calls (may have effects)
-    Call { target: HCallTarget, args: Vec<Atom> },
+    Call {
+        target: HCallTarget,
+        args: Vec<Atom>,
+    },
 
     // If as an expression (both branches same type; only one executes)
-    IfExpr { cond: Atom, then_: Block, else_: Block },
+    IfExpr {
+        cond: Atom,
+        then_: Block,
+        else_: Block,
+    },
 
     ArrayInit {
         elem_ty: TypeId,
@@ -196,7 +217,10 @@ pub struct Bind {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum RangeKind { HalfOpen, Closed }
+pub enum RangeKind {
+    HalfOpen,
+    Closed,
+}
 
 #[derive(Debug, Clone)]
 pub struct Statement {
@@ -204,48 +228,39 @@ pub struct Statement {
     pub node_id: NodeId,
 }
 
-impl Display for Statement {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match &self.kind {
-            StatementKind::Let { name, type_id, rhs } => {
-                writeln!(f, "{name:?}={rhs}")?;
-            }
-            StatementKind::Assign { dst, src } => {
-                writeln!(f, "{dst} <- {src}")?;
-            }
-            StatementKind::While { .. } => {}
-            StatementKind::ForRange { .. } => {}
-            StatementKind::ForArray { .. } => {}
-            StatementKind::ForMap { .. } => {}
-            StatementKind::ExprStmt { .. } => {}
-        }
-        Ok(())
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum StatementKind {
-    Let { name: SymId, type_id: TypeId, rhs: RValue },
-    Assign { dst: Place, src: Atom },      // single store
-    While { cond: Atom, body: Block },    // no break/return in Swamp
+    Let {
+        name: SymId,
+        type_id: TypeId,
+        rhs: RValue,
+    },
+    Assign {
+        dst: Place,
+        src: Atom,
+    }, // single store
+    While {
+        cond: Atom,
+        body: Block,
+    }, // no break/return in Swamp
 
     /// Numeric ranges: for i in start .. end //[step k]
     ForRange {
-        ivar: Bind,                 // loop variable (usually u32)
-        start: Atom,                // inclusive start
-        end: Atom,                // end bound (see `kind`)
+        ivar: Bind,  // loop variable (usually u32)
+        start: Atom, // inclusive start
+        end: Atom,   // end bound (see `kind`)
         //step: Option<Atom>,
-        kind: RangeKind,           // HalfOpen (..), Closed (..=) // inclusive exclusive
+        kind: RangeKind, // HalfOpen (..), Closed (..=) // inclusive exclusive
         body: Block,
         id: NodeId,
     },
 
     /// Arrays/slices/vectors: for (idx?, val) in array
     ForArray {
-        idx: Option<Bind>,        // Some(i) to bind index; None if you don't need it
-        val: Bind,                // value binding (by value or by ref; see `val_by_ref`)
-        array: Atom,                // the array/slice value (already evaluated)
-        val_by_ref: bool,           // true => bind &elem instead of copying elem
+        idx: Option<Bind>, // Some(i) to bind index; None if you don't need it
+        val: Bind,         // value binding (by value or by ref; see `val_by_ref`)
+        array: Atom,       // the array/slice value (already evaluated)
+        val_by_ref: bool,  // true => bind &elem instead of copying elem
         body: Block,
         id: NodeId,
     },
@@ -254,22 +269,24 @@ pub enum StatementKind {
     /// Lowered to runtime iterator protocol (or specialized bucket walk).
     ForMap {
         key: Option<Bind>,
-        val: Bind,                // value binding
-        map: Atom,                // the map value (already evaluated)
-        key_by_ref: bool,           // bind &key?
-        val_by_ref: bool,           // bind &val?
+        val: Bind,        // value binding
+        map: Atom,        // the map value (already evaluated)
+        key_by_ref: bool, // bind &key?
+        val_by_ref: bool, // bind &val?
         body: Block,
         id: NodeId,
     },
 
-    ExprStmt { rv: Expression },               // side-effect-only expression
+    ExprStmt {
+        rv: Expression,
+    }, // side-effect-only expression
 }
 
 #[derive(Clone, Debug)]
 pub struct MatchArm {
-    pub pat: Pattern,           // pattern to test
-    pub guard: Option<Atom>,    // optional guard expression (Atom)
-    pub body: Block,            // body that yields the arm's value
+    pub pat: Pattern,        // pattern to test
+    pub guard: Option<Atom>, // optional guard expression (Atom)
+    pub body: Block,         // body that yields the arm's value
     pub id: NodeId,
 }
 
@@ -281,46 +298,37 @@ pub struct Pattern {
 
 #[derive(Clone, Debug)]
 pub enum PatternKind {
-    Wild { id: NodeId },                      // _
-    LitI32 { value: i32, id: NodeId },        // 0, 1, 2, ...
-    Or { alts: Vec<Pattern>, id: NodeId },    // p1 | p2 | ...
-    // (future: range, enum, struct, by-ref, bindings, etc.)
+    Wild { id: NodeId },               // _
+    LitI32 { value: i32, id: NodeId }, // 0, 1, 2, ...
+    Or { alts: Vec<Pattern>, id: NodeId }, // p1 | p2 | ...
+                                       // (future: range, enum, struct, by-ref, bindings, etc.)
 }
 
 #[derive(Debug, Clone)]
 pub enum Expression {
-    Atom(Atom),                                      // Var / literal
-    Use(Place),                                      // read a lvalue
-    IfExpr { cond: Atom, then_: Block, else_: Block }, // if is an expression
-    Call { callee: Atom, args: Vec<Atom> },          // ANF: args are atoms
+    Atom(Atom), // Var / literal
+    Use(Place), // read a lvalue
+    IfExpr {
+        cond: Atom,
+        then_: Block,
+        else_: Block,
+    }, // if is an expression
+    Call {
+        callee: Atom,
+        args: Vec<Atom>,
+    }, // ANF: args are atoms
 
-    MatchExpr { scrutinee: Atom, arms: Vec<MatchArm>, id: NodeId },
+    MatchExpr {
+        scrutinee: Atom,
+        arms: Vec<MatchArm>,
+        id: NodeId,
+    },
 }
 
 #[derive(Clone, Debug)]
 pub struct Place {
     pub id: NodeId,
     pub kind: PlaceKind,
-}
-impl Display for Place {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-
-impl Display for PlaceKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PlaceKind::Var { sym } => {
-                write!(f, "var({sym:?})")?;
-            }
-            PlaceKind::Field { .. } => {}
-            PlaceKind::Index { .. } => {}
-            PlaceKind::Deref { .. } => {}
-        }
-        Ok(())
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -337,29 +345,6 @@ pub struct Atom {
     pub id: NodeId,
 }
 
-impl Display for Atom {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.kind)
-    }
-}
-
-
-impl Display for AtomKind {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Var { sym } => {
-                write!(f, "{sym:?}")
-            }
-            Self::LitI32 { value } => write!(f, "{value}_i32"),
-            Self::LitF32 { .. } => todo!(),
-            Self::LitBool { .. } => todo!(),
-            Self::LitNone => todo!(),
-            Self::LitU8 { .. } => todo!(),
-            Self::LitString { .. } => todo!(),
-        }
-    }
-}
-
 #[derive(Clone, Debug)]
 pub enum AtomKind {
     Var { sym: SymId },
@@ -370,130 +355,3 @@ pub enum AtomKind {
     LitU8 { value: u8 },
     LitString { value: String },
 }
-
-
-
-/*
-
-TODO:
-
-fn sum_pos(arr: [Int]) -> Int {
-  mut s: Int = 0
-
-  for v in arr {
-    s = if v > 0 { s + v } else { s }
-  }
-
-  s
-}
-
-
-should be lowered to:
-
-let s: i32 = LitI32(0)
-
-ForArray {
-  idx: None, val: Bind(v:i32), val_by_ref: false,
-  array: Var(arr),
-  body: {
-    let c  = CmpGt { a: Var(v), b: LitI32(0) }
-    let t  = Add   { a: Var(s), b: Var(v) }
-    let e  = Mov   { src: Var(s) }
-    let nv = IfExpr { cond: Var(c), then_: Block{ tail: Mov(t) }, else_: Block{ tail: Mov(e) } }
-    s = Mov(Var(nv))
-    tail: Mov(Var(s))
-  }
-}
-
-tail: Mov(Var(s))
-
-*/
-
-
-/*
-
-
-fn bucket(x: Int) -> Int {
-  match x {
-    0        => 100,
-    1 | 2    => 200,
-    n if n < 0 => -1,
-    _        => 300,
-  }
-}
-
-
-Function {
-  name: SymId("bucket"), params: [Param{x: i32}], ret: Some(i32),
-  body: Block {
-    statements: [],
-    tail: Box::new(Expression::MatchExpr {
-      scrutinee: Atom::Var { sym: SymId("x"), id },
-      arms: vec![
-        MatchArm {
-          pat: Pattern::LitI32 { value: 0, id },
-          guard: None,
-          body: Block { statements: [], tail: Box::new(Expression::Atom(Atom::LitI32 { value: 100, id })), node_id: id },
-          id
-        },
-        MatchArm {
-          pat: Pattern::Or { alts: vec![
-            Pattern::LitI32 { value: 1, id },
-            Pattern::LitI32 { value: 2, id },
-          ], id },
-          guard: None,
-          body: Block { statements: [], tail: Box::new(Expression::Atom(Atom::LitI32 { value: 200, id })), node_id: id },
-          id
-        },
-        MatchArm {
-          pat: Pattern::Wild { id },
-          guard: Some(Atom::CmpLtLike? ),
-          body: Block { statements: [], tail: Box::new(Expression::Atom(Atom::LitI32 { value: -1, id })), node_id: id },
-          id
-        },
-        MatchArm {
-          pat: Pattern::Wild { id },
-          guard: None,
-          body: Block { statements: [], tail: Box::new(Expression::Atom(Atom::LitI32 { value: 300, id })), node_id: id },
-          id
-        },
-      ],
-      id
-    }),
-    node_id: id
-  }
-}
-
-bb0(entry):
-    // tmp_neg = (x < 0)
-    tmp_neg = CmpLt { a: x, b: 0 }
-    if tmp_neg { goto bb_neg } else { goto bb_sw }
-
-bb_neg:
-    ret = -1
-    goto bb_ret
-
-bb_sw:
-    // Switch on x: 0->bb0v, 1->bb12, 2->bb12, default->bb_def
-    switch x {
-      0: bb0v
-      1: bb12
-      2: bb12
-      _ : bb_def
-    }
-
-bb0v:
-    ret = 100
-    goto bb_ret
-
-bb12:
-    ret = 200
-    goto bb_ret
-
-bb_def:
-    ret = 300
-    goto bb_ret
-
-bb_ret:
-    RETURN ret
- */

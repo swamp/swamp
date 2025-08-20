@@ -8,8 +8,8 @@ use crate::single_intrinsic_fn;
 use source_map_node::Node;
 use swamp_semantic::{Function, Postfix, PostfixKind, StartOfChain, StartOfChainKind};
 use swamp_vm_isa::MemoryOffset;
-use swamp_vm_types::types::{u8_type, Place, VmType};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Place, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     /// Handles the final load/conversion from `current_location` to `output_destination` if needed.

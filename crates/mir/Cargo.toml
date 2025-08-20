@@ -8,3 +8,5 @@ description = "Swamp MIR language"
 
 
 [dependencies]
+swamp-ir-shared = { path = "../ir-shared" }
+ansi-pretty-print = { path = "../../../../piot/ansi-pretty-print" }

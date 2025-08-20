@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-swamp-lir = { path = "../lir", features = ["debug-info"] }
-
+swamp-ir-shared = { path = "../ir-shared" }
+ansi-pretty-print = { path = "../../../../piot/ansi-pretty-print" }
 [features]
 debug-info = []

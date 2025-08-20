@@ -7,8 +7,8 @@ use crate::ctx::Context;
 use swamp_semantic::{BinaryOperatorKind, Expression, ExpressionKind, PostfixKind};
 use swamp_types::TypeKind;
 use swamp_vm_layout::LayoutCache;
-use swamp_vm_types::types::{int_type, Place, TypedRegister, VmType};
 use swamp_vm_types::MemoryLocation;
+use swamp_vm_types::types::{Place, TypedRegister, VmType, int_type};
 use tracing::warn;
 
 impl CodeBuilder<'_> {
@@ -65,9 +65,9 @@ impl CodeBuilder<'_> {
         // and return a pointer in the register instead and hopefully it works out.
         if !matches!(output, Place::Memory(_))
             && Self::rvalue_needs_memory_location_to_materialize_in(
-            &mut self.state.layout_cache,
-            expr,
-        )
+                &mut self.state.layout_cache,
+                expr,
+            )
         {
             let expr_basic_type = self.state.layout_cache.layout(&expr.ty);
             let temp_materialization_target = self
@@ -331,6 +331,9 @@ impl CodeBuilder<'_> {
                 );
             }
             ExpressionKind::BorrowMutRef(expression) => {
+                if !output.is_register() {
+                    self.debug_expression(expr, "emitting expression");
+                }
                 self.emit_borrow_mutable_reference(
                     output.grab_register(),
                     &expr.node,
@@ -521,7 +524,10 @@ impl CodeBuilder<'_> {
 
             ExpressionKind::PostfixChain(_chain, postfixes) => {
                 // TODO: this seems to work, but it feels all kind of wrong
-                let last_is_member_call = matches!(postfixes[postfixes.len()-1].kind, PostfixKind::MemberCall(..));
+                let last_is_member_call = matches!(
+                    postfixes[postfixes.len() - 1].kind,
+                    PostfixKind::MemberCall(..)
+                );
                 let basic_type = layout_cache.layout(&expr.ty);
                 last_is_member_call && !basic_type.is_reg_copy()
             }
@@ -561,7 +567,6 @@ impl CodeBuilder<'_> {
         ctx: &Context,
     ) {
         let output = Place::new_reg(target_register.clone());
-
 
         self.emit_expression(&output, expr, &ctx.clone().with_comment(comment));
     }

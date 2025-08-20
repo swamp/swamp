@@ -1,7 +1,14 @@
 use seq_map::SeqMap;
 use source_map_node::Node;
-use swamp_hir::{Atom, AtomKind, Expression, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind, RuntimeOp, Statement, StatementKind, SymId, TypeId};
-use swamp_semantic::{AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, Block, ExpressionKind, Postfix, PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind};
+use swamp_hir::{
+    Atom, AtomKind, Expression, HCallTarget, NodeId, Place, PlaceKind, RValue, RValueKind,
+    RuntimeOp, Statement, StatementKind, SymId,
+};
+use swamp_ir_shared::TypeId;
+use swamp_semantic::{
+    AnonymousStructLiteral, BinaryOperator, BinaryOperatorKind, Block, ExpressionKind, Postfix,
+    PostfixKind, StartOfChain, StartOfChainKind, UnaryOperator, UnaryOperatorKind,
+};
 use swamp_symbol::{ScopedSymbolId, TopLevelSymbolId};
 use swamp_types::prelude::{AnonymousStructType, TypeCache};
 use swamp_types::{TypeKind, TypeRef};
@@ -11,18 +18,26 @@ pub struct BlockBuilder {
 }
 
 impl BlockBuilder {
-    pub fn new() -> Self { Self { statements: Vec::new() } }
+    pub fn new() -> Self {
+        Self {
+            statements: Vec::new(),
+        }
+    }
 
     /// Append `let <sym>: <ty> = <rhs>;` and return `Atom::Var(sym)`.
     pub fn push_let(
         &mut self,
         sym: swamp_hir::SymId,
-        type_id: swamp_hir::TypeId,
+        type_id: TypeId,
         rhs: swamp_hir::RValue,
         id: swamp_hir::NodeId,
     ) -> swamp_hir::Atom {
         self.statements.push(swamp_hir::Statement {
-            kind: StatementKind::Let { name: sym, rhs, type_id },
+            kind: StatementKind::Let {
+                name: sym,
+                rhs,
+                type_id,
+            },
             node_id: id,
         });
         swamp_hir::Atom {
@@ -35,7 +50,9 @@ impl BlockBuilder {
         self.statements.push(stmt);
     }
 
-    pub fn into_vec(self) -> Vec<swamp_hir::Statement> { self.statements }
+    pub fn into_vec(self) -> Vec<swamp_hir::Statement> {
+        self.statements
+    }
 }
 
 struct SymIdGenerator {
@@ -44,9 +61,7 @@ struct SymIdGenerator {
 
 impl SymIdGenerator {
     pub fn new() -> Self {
-        Self {
-            last_id: 0,
-        }
+        Self { last_id: 0 }
     }
     pub fn next(&mut self) -> SymId {
         self.last_id += 1;
@@ -54,16 +69,13 @@ impl SymIdGenerator {
     }
 }
 
-
 struct NodeIdGenerator {
     pub last_id: u32,
 }
 
 impl NodeIdGenerator {
     pub fn new() -> Self {
-        Self {
-            last_id: 0,
-        }
+        Self { last_id: 0 }
     }
     pub fn next(&mut self) -> NodeId {
         self.last_id += 1;
@@ -86,7 +98,9 @@ impl NodeIdToNode {
 
     pub fn create_node_id(&mut self, node: &Node) -> NodeId {
         let node_id = self.node_id_generator.next();
-        self.lookup.insert(node_id, node.clone()).expect("should work");
+        self.lookup
+            .insert(node_id, node.clone())
+            .expect("should work");
         node_id
     }
 }
@@ -131,9 +145,7 @@ pub struct LowerHir<'a> {
     node_gen: NodeIdToNode,
     scoped_symbol_id_to_sym_id: ScopedSymbolIdToSymId,
     type_cache: &'a TypeCache,
-
     // mappings: HashMap<SemaSymbolId, SymId>,
-
 }
 
 impl<'a> LowerHir<'a> {
@@ -150,7 +162,6 @@ impl LowerHir<'_> {
     pub fn lower_block(&mut self, sema_blk: &Block) -> swamp_hir::Block {
         let mut bb = BlockBuilder::new();
 
-
         for s in &sema_blk.statements {
             self.lower_statement(s, &mut bb);
         }
@@ -164,27 +175,37 @@ impl LowerHir<'_> {
         }
     }
 
-    pub fn lower_block_expressions(&mut self, expressions: &Vec<swamp_semantic::Expression>) -> swamp_hir::Block {
+    pub fn lower_block_expressions(
+        &mut self,
+        expressions: &Vec<swamp_semantic::Expression>,
+    ) -> swamp_hir::Block {
         let mut bb = BlockBuilder::new();
-
 
         for s in expressions {
             self.lower_statement(s, &mut bb);
         }
 
-
         swamp_hir::Block {
             statements: bb.into_vec(),
-            tail: Box::new(Expression::Atom(Atom { kind: AtomKind::LitBool { value: false }, id: NodeId(0) })),
+            tail: Box::new(Expression::Atom(Atom {
+                kind: AtomKind::LitBool { value: false },
+                id: NodeId(0),
+            })),
             node_id: NodeId(0),
         }
     }
 
-    pub fn lower_statement(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) {
+    pub fn lower_statement(
+        &mut self,
+        expr: &swamp_semantic::Expression,
+        block_builder: &mut BlockBuilder,
+    ) {
         match &expr.kind {
             ExpressionKind::VariableDefinition(variable, expression) => {
                 let node_id = self.node_gen.create_node_id(&variable.name);
-                let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_sym_id(variable.symbol_id);
+                let sym_id = self
+                    .scoped_symbol_id_to_sym_id
+                    .get_or_create_sym_id(variable.symbol_id);
                 let type_id = self.type_id_from_ref(&variable.resolved_type);
                 let rhs_atom = self.lower_rvalue(expression, block_builder);
                 block_builder.push_let(sym_id, type_id, rhs_atom, node_id);
@@ -211,7 +232,8 @@ impl LowerHir<'_> {
 
                     self.lower_statement(last, block_builder)
                 } else {
-                    if block.is_empty() {} else {
+                    if block.is_empty() {
+                    } else {
                         self.lower_statement(&block.first().unwrap(), block_builder)
                     }
                 }
@@ -219,24 +241,26 @@ impl LowerHir<'_> {
 
             _ => {
                 let converted_expr = self.lower_expression(&expr, block_builder);
-                let kind = StatementKind::ExprStmt {
-                    rv: converted_expr,
-                };
+                let kind = StatementKind::ExprStmt { rv: converted_expr };
 
                 let node_id = self.node_gen.create_node_id(&expr.node);
-                block_builder.push_stmt(Statement {
-                    kind,
-                    node_id,
-                })
+                block_builder.push_stmt(Statement { kind, node_id })
             }
         }
     }
 
-    pub fn lower_struct_literal(&mut self, anon_struct_type: &AnonymousStructType, struct_lit: &AnonymousStructLiteral, block_builder: &mut BlockBuilder) -> RValueKind {
+    pub fn lower_struct_literal(
+        &mut self,
+        anon_struct_type: &AnonymousStructType,
+        struct_lit: &AnonymousStructLiteral,
+        block_builder: &mut BlockBuilder,
+    ) -> RValueKind {
         let field_count_in_struct_type = anon_struct_type.field_name_sorted_fields.len();
         let mut fields = vec![None; field_count_in_struct_type];
 
-        for (index, _maybe_node, field_init_value_expression) in &struct_lit.source_order_expressions {
+        for (index, _maybe_node, field_init_value_expression) in
+            &struct_lit.source_order_expressions
+        {
             let atom = self.lower_atom(&field_init_value_expression, block_builder);
             fields[*index] = Some(atom);
         }
@@ -247,21 +271,30 @@ impl LowerHir<'_> {
         }
     }
 
-    pub fn lower_rvalue(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) -> swamp_hir::RValue {
+    pub fn lower_rvalue(
+        &mut self,
+        expr: &swamp_semantic::Expression,
+        block_builder: &mut BlockBuilder,
+    ) -> swamp_hir::RValue {
         let node_id = self.node_gen.create_node_id(&expr.node);
 
         let kind = match &expr.kind {
             ExpressionKind::AnonymousStructLiteral(struct_lit) => {
-                let TypeKind::AnonymousStruct(anon_struct_type) = &*struct_lit.struct_like_type.kind else {
+                let TypeKind::AnonymousStruct(anon_struct_type) =
+                    &*struct_lit.struct_like_type.kind
+                else {
                     panic!("internal error, wrong anon type");
                 };
                 self.lower_struct_literal(anon_struct_type, struct_lit, block_builder)
             }
             ExpressionKind::NamedStructLiteral(struct_lit_expr) => {
-                let ExpressionKind::AnonymousStructLiteral(struct_lit) = &struct_lit_expr.kind else {
+                let ExpressionKind::AnonymousStructLiteral(struct_lit) = &struct_lit_expr.kind
+                else {
                     panic!("internal error, wrong anon type");
                 };
-                let TypeKind::AnonymousStruct(anon_struct_type) = &*struct_lit.struct_like_type.kind else {
+                let TypeKind::AnonymousStruct(anon_struct_type) =
+                    &*struct_lit.struct_like_type.kind
+                else {
                     panic!("internal error, wrong anon type");
                 };
 
@@ -279,32 +312,33 @@ impl LowerHir<'_> {
             }
         };
 
-        RValue {
-            id: node_id,
-            kind,
-        }
+        RValue { id: node_id, kind }
     }
 
-    pub fn lower_atom(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) -> swamp_hir::Atom {
+    pub fn lower_atom(
+        &mut self,
+        expr: &swamp_semantic::Expression,
+        block_builder: &mut BlockBuilder,
+    ) -> swamp_hir::Atom {
         let node_id = self.node_gen.create_node_id(&expr.node);
         match &expr.kind {
             ExpressionKind::ConstantAccess(const_access) => {
-                let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_top_sym_id(const_access.symbol_id);
+                let sym_id = self
+                    .scoped_symbol_id_to_sym_id
+                    .get_or_create_top_sym_id(const_access.symbol_id);
                 let node_id = self.node_gen.create_node_id(&const_access.name);
                 Atom {
-                    kind: AtomKind::Var {
-                        sym: sym_id,
-                    },
+                    kind: AtomKind::Var { sym: sym_id },
                     id: node_id,
                 }
             }
             ExpressionKind::VariableAccess(var_access) => {
-                let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_sym_id(var_access.symbol_id);
+                let sym_id = self
+                    .scoped_symbol_id_to_sym_id
+                    .get_or_create_sym_id(var_access.symbol_id);
                 let node_id = self.node_gen.create_node_id(&var_access.name);
                 Atom {
-                    kind: AtomKind::Var {
-                        sym: sym_id,
-                    },
+                    kind: AtomKind::Var { sym: sym_id },
                     id: node_id,
                 }
             }
@@ -314,12 +348,7 @@ impl LowerHir<'_> {
                 let type_id = TypeId(expr.ty.id.inner());
                 let node_id = self.node_gen.create_node_id(&binary_operator.node);
 
-                block_builder.push_let(
-                    let_variable_sym_id,
-                    type_id,
-                    rvalue,
-                    node_id,
-                );
+                block_builder.push_let(let_variable_sym_id, type_id, rvalue, node_id);
 
                 Atom {
                     kind: AtomKind::Var {
@@ -334,12 +363,7 @@ impl LowerHir<'_> {
                 let type_id = TypeId(expr.ty.id.inner());
                 let node_id = self.node_gen.create_node_id(&unary_op.node);
 
-                block_builder.push_let(
-                    let_variable_sym_id,
-                    type_id,
-                    rvalue,
-                    node_id,
-                );
+                block_builder.push_let(let_variable_sym_id, type_id, rvalue, node_id);
 
                 Atom {
                     kind: AtomKind::Var {
@@ -363,42 +387,38 @@ impl LowerHir<'_> {
             ExpressionKind::VariableReassignment(_, _) => todo!(),
             ExpressionKind::Assignment(_, _) => todo!(),
             ExpressionKind::CompoundAssignment(_, _, _) => todo!(),
-            ExpressionKind::FloatLiteral(fixed_point) => {
-                Atom {
-                    kind: AtomKind::LitF32 { value: fixed_point.inner() },
-                    id: node_id,
-                }
-            }
-            ExpressionKind::NoneLiteral => {
-                Atom {
-                    kind: AtomKind::LitNone,
-                    id: node_id,
-                }
-            }
-            ExpressionKind::IntLiteral(int_lit) => {
-                Atom {
-                    kind: AtomKind::LitI32 { value: *int_lit },
-                    id: node_id,
-                }
-            }
-            ExpressionKind::ByteLiteral(byte_literal) => {
-                Atom {
-                    kind: AtomKind::LitU8 { value: *byte_literal },
-                    id: node_id,
-                }
-            }
-            ExpressionKind::BoolLiteral(bool_literal) => {
-                Atom {
-                    kind: AtomKind::LitBool { value: *bool_literal },
-                    id: node_id,
-                }
-            }
-            ExpressionKind::StringLiteral(str_literal) => {
-                Atom {
-                    kind: AtomKind::LitString { value: str_literal.clone() },
-                    id: node_id,
-                }
-            }
+            ExpressionKind::FloatLiteral(fixed_point) => Atom {
+                kind: AtomKind::LitF32 {
+                    value: fixed_point.inner(),
+                },
+                id: node_id,
+            },
+            ExpressionKind::NoneLiteral => Atom {
+                kind: AtomKind::LitNone,
+                id: node_id,
+            },
+            ExpressionKind::IntLiteral(int_lit) => Atom {
+                kind: AtomKind::LitI32 { value: *int_lit },
+                id: node_id,
+            },
+            ExpressionKind::ByteLiteral(byte_literal) => Atom {
+                kind: AtomKind::LitU8 {
+                    value: *byte_literal,
+                },
+                id: node_id,
+            },
+            ExpressionKind::BoolLiteral(bool_literal) => Atom {
+                kind: AtomKind::LitBool {
+                    value: *bool_literal,
+                },
+                id: node_id,
+            },
+            ExpressionKind::StringLiteral(str_literal) => Atom {
+                kind: AtomKind::LitString {
+                    value: str_literal.clone(),
+                },
+                id: node_id,
+            },
             ExpressionKind::AnonymousStructLiteral(struct_lit) => {
                 panic!("struct literal not atom")
             }
@@ -428,129 +448,60 @@ impl LowerHir<'_> {
         }
     }
 
-    pub fn lower_unary_operator_to_rvalue(&mut self, unary_operator: &UnaryOperator, block_builder: &mut BlockBuilder) -> swamp_hir::RValue {
+    pub fn lower_unary_operator_to_rvalue(
+        &mut self,
+        unary_operator: &UnaryOperator,
+        block_builder: &mut BlockBuilder,
+    ) -> swamp_hir::RValue {
         let left = self.lower_atom(&unary_operator.left, block_builder);
         let node_id = self.node_gen.create_node_id(&unary_operator.node);
 
         match &unary_operator.kind {
-            UnaryOperatorKind::Not => {
-                RValue {
-                    kind: RValueKind::Not {
-                        x: left,
-                    },
-                    id: node_id,
-                }
-            }
-            UnaryOperatorKind::Negate => {
-                RValue {
-                    kind: RValueKind::Neg {
-                        x: left,
-                    },
-                    id: node_id,
-                }
-            }
+            UnaryOperatorKind::Not => RValue {
+                kind: RValueKind::Not { x: left },
+                id: node_id,
+            },
+            UnaryOperatorKind::Negate => RValue {
+                kind: RValueKind::Neg { x: left },
+                id: node_id,
+            },
         }
     }
 
-    pub fn lower_binary_operator_to_rvalue(&mut self, binary_operator: &BinaryOperator, block_builder: &mut BlockBuilder) -> swamp_hir::RValue {
+    pub fn lower_binary_operator_to_rvalue(
+        &mut self,
+        binary_operator: &BinaryOperator,
+        block_builder: &mut BlockBuilder,
+    ) -> swamp_hir::RValue {
         let left = self.lower_atom(&binary_operator.left, block_builder);
         let right = self.lower_atom(&binary_operator.right, block_builder);
         let node_id = self.node_gen.create_node_id(&binary_operator.node);
 
         let kind = match &binary_operator.kind {
-            BinaryOperatorKind::Add => {
-                RValueKind::Add {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::Subtract => {
-                RValueKind::Sub {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::Multiply => {
-                RValueKind::Mul {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::Divide => {
-                RValueKind::SDiv {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::Modulo => {
-                RValueKind::SMod {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::LogicalOr => {
-                RValueKind::Or {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::LogicalAnd => {
-                RValueKind::And {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::Equal => {
-                RValueKind::CmpEq {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::NotEqual => {
-                RValueKind::CmpNe {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::LessThan => {
-                RValueKind::CmpLt {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::LessEqual => {
-                RValueKind::CmpLe {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::GreaterThan => {
-                RValueKind::CmpGt {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::GreaterEqual => {
-                RValueKind::CmpGe {
-                    a: left,
-                    b: right,
-                }
-            }
-            BinaryOperatorKind::NoneCoalesce => {
-                RValueKind::NoneCoalesce {
-                    a: left,
-                    b: right,
-                }
-            }
+            BinaryOperatorKind::Add => RValueKind::Add { a: left, b: right },
+            BinaryOperatorKind::Subtract => RValueKind::Sub { a: left, b: right },
+            BinaryOperatorKind::Multiply => RValueKind::Mul { a: left, b: right },
+            BinaryOperatorKind::Divide => RValueKind::SDiv { a: left, b: right },
+            BinaryOperatorKind::Modulo => RValueKind::SMod { a: left, b: right },
+            BinaryOperatorKind::LogicalOr => RValueKind::Or { a: left, b: right },
+            BinaryOperatorKind::LogicalAnd => RValueKind::And { a: left, b: right },
+            BinaryOperatorKind::Equal => RValueKind::CmpEq { a: left, b: right },
+            BinaryOperatorKind::NotEqual => RValueKind::CmpNe { a: left, b: right },
+            BinaryOperatorKind::LessThan => RValueKind::CmpLt { a: left, b: right },
+            BinaryOperatorKind::LessEqual => RValueKind::CmpLe { a: left, b: right },
+            BinaryOperatorKind::GreaterThan => RValueKind::CmpGt { a: left, b: right },
+            BinaryOperatorKind::GreaterEqual => RValueKind::CmpGe { a: left, b: right },
+            BinaryOperatorKind::NoneCoalesce => RValueKind::NoneCoalesce { a: left, b: right },
         };
 
-        RValue {
-            kind,
-            id: node_id,
-        }
+        RValue { kind, id: node_id }
     }
 
-    pub fn lower_expression(&mut self, expr: &swamp_semantic::Expression, block_builder: &mut BlockBuilder) -> swamp_hir::Expression {
+    pub fn lower_expression(
+        &mut self,
+        expr: &swamp_semantic::Expression,
+        block_builder: &mut BlockBuilder,
+    ) -> swamp_hir::Expression {
         match &expr.kind {
             ExpressionKind::PostfixChain(_, _) => todo!(),
             ExpressionKind::CoerceOptionToBool(_) => todo!(),
@@ -595,7 +546,8 @@ impl LowerHir<'_> {
             ExpressionKind::If(condition, truth_expr, false_expr) => {
                 let condition_atom = self.lower_atom(&condition.expression, block_builder);
                 let truth_block = self.lower_block_expressions(&vec![*truth_expr.clone()]);
-                let false_block = self.lower_block_expressions(&vec![*false_expr.as_ref().unwrap().clone()]);
+                let false_block =
+                    self.lower_block_expressions(&vec![*false_expr.as_ref().unwrap().clone()]);
 
                 Expression::IfExpr {
                     cond: condition_atom,
@@ -616,7 +568,12 @@ impl LowerHir<'_> {
         }
     }
 
-    fn lower_postfix_chain(&mut self, start: &StartOfChain, postfixes: &Vec<Postfix>, block_builder: &mut BlockBuilder) -> Atom {
+    fn lower_postfix_chain(
+        &mut self,
+        start: &StartOfChain,
+        postfixes: &Vec<Postfix>,
+        block_builder: &mut BlockBuilder,
+    ) -> Atom {
         let node_id = self.node_gen.create_node_id(&start.node);
         let (atom, type_ref) = match &start.kind {
             StartOfChainKind::Expression(start_expression) => {
@@ -624,11 +581,11 @@ impl LowerHir<'_> {
                 (atom, start_expression.ty.clone())
             }
             StartOfChainKind::Variable(var) => {
-                let sym_id = self.scoped_symbol_id_to_sym_id.get_or_create_sym_id(var.symbol_id);
+                let sym_id = self
+                    .scoped_symbol_id_to_sym_id
+                    .get_or_create_sym_id(var.symbol_id);
                 let atom = swamp_hir::Atom {
-                    kind: swamp_hir::AtomKind::Var {
-                        sym: sym_id,
-                    },
+                    kind: swamp_hir::AtomKind::Var { sym: sym_id },
                     id: node_id,
                 };
                 (atom, var.resolved_type.clone())
@@ -642,7 +599,8 @@ impl LowerHir<'_> {
             kind: RValueKind::Mov { src: atom },
         };
 
-        let cur_atom = block_builder.push_let(let_variable_sym_id, cur_ty, start_rvalue.clone(), node_id);
+        let cur_atom =
+            block_builder.push_let(let_variable_sym_id, cur_ty, start_rvalue.clone(), node_id);
 
         // start the cursor
         let mut cur_place = swamp_hir::Place {
@@ -650,12 +608,11 @@ impl LowerHir<'_> {
                 // TODO: clean this up, so the match is not needed here
                 sym: match cur_atom.kind {
                     swamp_hir::AtomKind::Var { sym, .. } => sym,
-                    _ => let_variable_sym_id
+                    _ => let_variable_sym_id,
                 },
             },
             id: node_id,
         };
-
 
         for postfix in postfixes {
             match &postfix.kind {
@@ -663,11 +620,16 @@ impl LowerHir<'_> {
                     let TypeKind::AnonymousStruct(found_struct) = &*type_ref.kind else {
                         panic!("internal error anon struct hir");
                     };
-                    let struct_type_field = found_struct.field_name_sorted_fields.values().collect::<Vec<_>>()[*field_index];
+                    let struct_type_field = found_struct
+                        .field_name_sorted_fields
+                        .values()
+                        .collect::<Vec<_>>()[*field_index];
                     cur_place = swamp_hir::Place {
                         kind: PlaceKind::Field {
                             base: Box::new(cur_place),
-                            name: self.scoped_symbol_id_to_sym_id.get_or_create_top_sym_id(struct_type_field.symbol_id),
+                            name: self
+                                .scoped_symbol_id_to_sym_id
+                                .get_or_create_top_sym_id(struct_type_field.symbol_id),
                         },
                         id: self.node_gen.create_node_id(&postfix.node),
                     };
@@ -683,7 +645,6 @@ impl LowerHir<'_> {
                         kind: swamp_hir::PlaceKind::Index {
                             base: Box::new(cur_place.clone()),
                             index: idx_atom,
-
                         },
                         id: node_id,
                     };
@@ -694,7 +655,17 @@ impl LowerHir<'_> {
                     // get base map value to pass to runtime
                     let base_val = {
                         let s = self.scoped_symbol_id_to_sym_id.sym_gen.next();
-                        block_builder.push_let(s, cur_ty, RValue { kind: swamp_hir::RValueKind::Use { place: cur_place.clone() }, id: node_id }, node_id)
+                        block_builder.push_let(
+                            s,
+                            cur_ty,
+                            RValue {
+                                kind: swamp_hir::RValueKind::Use {
+                                    place: cur_place.clone(),
+                                },
+                                id: node_id,
+                            },
+                            node_id,
+                        )
                     };
                     // call runtime: MapGetAddr(map, key) -> *T
                     let ptr_ty = self.type_id_from_ref(&map_type_ref.value);

@@ -2,15 +2,15 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
 use crate::transformer::{Collection, Transformer, TransformerResult};
-use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{Expression, VariableRef};
 use swamp_vm_isa::{InstructionPosition, MemoryOffset};
 use swamp_vm_types::types::{
-    pointer_type, u32_type, u8_type, BasicTypeKind, BasicTypeRef, Place, TypedRegister, VmType,
+    BasicTypeKind, BasicTypeRef, Place, TypedRegister, VmType, pointer_type, u8_type, u32_type,
 };
 use swamp_vm_types::{MemoryLocation, PatchPosition};
 use tracing::error;
@@ -76,17 +76,23 @@ impl CodeBuilder<'_> {
         // Primary is the right most variable
         let primary_variable = &target_variables[target_variables.len() - 1];
 
-
         let hwm = self.temp_registers.save_mark();
-
 
         let temp_index_reg_for_mut_source = match transformer.return_type() {
             TransformerResult::VecMutateSourceCollection => {
-                let temp_reg = self.temp_registers.allocate(VmType::new_contained_in_register(u32_type()), "mutate index");
-                self.builder.add_mov_32_immediate_value(temp_reg.register(), 0, node, "initialize index register to zero");
+                let temp_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(u32_type()),
+                    "mutate index",
+                );
+                self.builder.add_mov_32_immediate_value(
+                    temp_reg.register(),
+                    0,
+                    node,
+                    "initialize index register to zero",
+                );
                 Some(temp_reg.register().clone())
             }
-            _ => None
+            _ => None,
         };
 
         // 1. Initialize the target collection if needed and compute collection pointer
@@ -182,7 +188,8 @@ impl CodeBuilder<'_> {
                     );
 
                     // TODO: let payload_memory_location = result_location.unsafe_add_offset(tagged_union.payload_offset);
-                    let payload_memory_location = result_location.unsafe_add_offset(MemoryOffset(4));
+                    let payload_memory_location =
+                        result_location.unsafe_add_offset(MemoryOffset(4));
                     let payload_destination = Place::Memory(payload_memory_location);
 
                     let source_location = Place::Register(primary_variable.clone());
@@ -195,11 +202,7 @@ impl CodeBuilder<'_> {
                     );
 
                     // The P flag is set so we can act on it
-                    let skip_early = self.builder.add_jump_placeholder(
-                        node,
-                        "skip early",
-                    );
-
+                    let skip_early = self.builder.add_jump_placeholder(node, "skip early");
 
                     self.builder.patch_jump_here(skip_over_some_section);
 
@@ -215,7 +218,6 @@ impl CodeBuilder<'_> {
                     )
                 }
             };
-
 
             Some(skip_early)
         } else {
@@ -275,9 +277,17 @@ impl CodeBuilder<'_> {
 
                 // TODO: have a subscript index and overwrite
                 let index_reg = temp_index_reg_for_mut_source.unwrap();
-                let pointer_to_entry_reg = self.temp_registers.allocate(VmType::new_contained_in_register(pointer_type()), "holds pointer to vec entry");
-                self.builder.add_vec_subscript(pointer_to_entry_reg.register(), source_collection_reg, &index_reg, node, "get pointer to element");
-
+                let pointer_to_entry_reg = self.temp_registers.allocate(
+                    VmType::new_contained_in_register(pointer_type()),
+                    "holds pointer to vec entry",
+                );
+                self.builder.add_vec_subscript(
+                    pointer_to_entry_reg.register(),
+                    source_collection_reg,
+                    &index_reg,
+                    node,
+                    "get pointer to element",
+                );
 
                 self.builder.patch_jump_here(skip_if_false_patch_position);
             }
@@ -296,7 +306,6 @@ impl CodeBuilder<'_> {
         if let Some(found_skip_early) = maybe_skip_early {
             self.builder.patch_jump_here(found_skip_early);
         }
-
 
         self.temp_registers.restore_to_mark(hwm);
     }

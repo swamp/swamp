@@ -8,7 +8,7 @@ description = "Swamp LIR language"
 
 
 [dependencies]
-
+swamp-ir-shared = { path = "../ir-shared" }
 
 [features]
 debug-info = []

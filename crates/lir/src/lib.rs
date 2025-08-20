@@ -1,16 +1,11 @@
 use std::sync::Arc;
+use swamp_ir_shared::VReg;
 
 mod pretty;
 
 /// A minimal LIR abstraction
 /// It is designed to be as simple and easy to lower to hardware as possible
 ///
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct FunctionId(pub u32);
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct BlockId(pub u32);
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct VReg(pub u32);
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Base {

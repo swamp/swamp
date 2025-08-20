@@ -9,7 +9,7 @@ use std::fmt::Write;
 use swamp_vm_debug_info::DebugInfo;
 use swamp_vm_disasm::disasm_instructions_color;
 use swamp_vm_isa::BinaryInstruction;
-use swamp_vm_types::types::{show_frame_memory, write_basic_type, VariableRegister, VmType};
+use swamp_vm_types::types::{VariableRegister, VmType, show_frame_memory, write_basic_type};
 use swamp_vm_types::{FrameMemoryAddress, InstructionRange};
 
 #[must_use]
@@ -24,7 +24,7 @@ pub fn show_parameters_and_variables(
 ) -> Result<(), fmt::Error> {
     if use_color {
         if !return_type.is_scalar() {
-            writeln!(f, "{}: {}", tinter::blue("r0"), &return_type, )?;
+            writeln!(f, "{}: {}", tinter::blue("r0"), &return_type,)?;
             write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
             writeln!(f)?;
         }
@@ -41,7 +41,7 @@ pub fn show_parameters_and_variables(
         }
     } else {
         if !return_type.is_scalar() {
-            writeln!(f, "{}: {}", "r0", &return_type, )?;
+            writeln!(f, "{}: {}", "r0", &return_type,)?;
             write_basic_type(&return_type.basic_type, FrameMemoryAddress(0), f, 0)?;
             writeln!(f)?;
         }
@@ -81,7 +81,7 @@ pub fn disasm_function(
         &mut header_output,
         use_color,
     )
-        .unwrap();
+    .unwrap();
 
     show_parameters_and_variables(
         return_type,
@@ -89,7 +89,7 @@ pub fn disasm_function(
         &mut header_output,
         use_color,
     )
-        .expect("should work");
+    .expect("should work");
 
     let asm = disasm_instructions_color(
         instructions,
@@ -99,7 +99,7 @@ pub fn disasm_function(
         use_color,
     );
 
-    format!("{header_output}\n{asm}", )
+    format!("{header_output}\n{asm}",)
 }
 
 pub fn disasm_whole_program(

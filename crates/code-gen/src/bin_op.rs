@@ -2,14 +2,14 @@
  * Copyright (c) Peter Bjorklund. All rights reserved. https://github.com/swamp/swamp
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
+use crate::FlagStateKind;
 use crate::code_bld::CodeBuilder;
 use crate::ctx::Context;
-use crate::FlagStateKind;
 use source_map_node::Node;
 use swamp_semantic::{BinaryOperator, BinaryOperatorKind, Expression};
 use swamp_types::TypeKind;
-use swamp_vm_types::types::{u8_type, Place, TypedRegister, VmType};
 use swamp_vm_types::AggregateMemoryLocation;
+use swamp_vm_types::types::{Place, TypedRegister, VmType, u8_type};
 
 impl CodeBuilder<'_> {
     pub(crate) fn emit_binary_operator(
@@ -267,20 +267,29 @@ impl CodeBuilder<'_> {
         let destination_to_use_for_left_side = if both_are_optionals {
             dest
         } else {
-            lhs_destination_storage_for_optional = self.allocate_frame_space_and_return_destination_to_it(
-                &left_optional_basic_type,
-                false,
-                node,
-                "?? left temp storage for tag + payload",
-            );
+            lhs_destination_storage_for_optional = self
+                .allocate_frame_space_and_return_destination_to_it(
+                    &left_optional_basic_type,
+                    false,
+                    node,
+                    "?? left temp storage for tag + payload",
+                );
 
             let left_payload_type_some_variant = left_optional_basic_type.get_variant(1);
 
             if left_payload_type_some_variant.ty.is_aggregate() {
-                let lhs_memory_location = lhs_destination_storage_for_optional.memory_location().unwrap();
-                let lhs_aggregate_pointer = AggregateMemoryLocation::new(lhs_memory_location.clone());
-                let payload_memory_location = lhs_aggregate_pointer.offset(payload_offset, left_payload_type_some_variant.ty.clone());
-                self.emit_initialize_memory_for_any_type(&payload_memory_location.location, node, "initialize lhs temporary optional payload");
+                let lhs_memory_location = lhs_destination_storage_for_optional
+                    .memory_location()
+                    .unwrap();
+                let lhs_aggregate_pointer =
+                    AggregateMemoryLocation::new(lhs_memory_location.clone());
+                let payload_memory_location = lhs_aggregate_pointer
+                    .offset(payload_offset, left_payload_type_some_variant.ty.clone());
+                self.emit_initialize_memory_for_any_type(
+                    &payload_memory_location.location,
+                    node,
+                    "initialize lhs temporary optional payload",
+                );
             }
 
             &lhs_destination_storage_for_optional
@@ -288,9 +297,8 @@ impl CodeBuilder<'_> {
 
         self.emit_expression(destination_to_use_for_left_side, left, ctx);
 
-
-        let tag_location =
-            destination_to_use_for_left_side.add_offset(tag_offset, VmType::new_contained_in_register(u8_type()));
+        let tag_location = destination_to_use_for_left_side
+            .add_offset(tag_offset, VmType::new_contained_in_register(u8_type()));
         let tag_memory_location = tag_location.memory_location().unwrap();
 
         let temp_tag_reg = self.temp_registers.allocate(

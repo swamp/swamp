@@ -1,0 +1,19 @@
+[package]
+name = "swamp-lower-mir"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+swamp-mir = { path = "../mir" }
+swamp-hir = { path = "../hir" }
+swamp-ir-shared = { path = "../ir-shared" }
+seq-map = "0.0.14"
+
+
+[dev-dependencies]
+swamp-compile = { path = "../compile" }
+swamp-dep-loader = { path = "../dep-loader" }
+ansi-pretty-print = { path = "../../../../piot/ansi-pretty-print" }
+
+swamp-lower-hir = { path = "../lower-hir" }
+swamp-semantic = { path = "../semantic" }

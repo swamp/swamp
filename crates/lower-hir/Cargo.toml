@@ -8,6 +8,7 @@ description = "Swamp lower to HIR"
 
 [dependencies]
 swamp-hir = { path = "../hir", features = ["debug-info"] }
+swamp-ir-shared = { path = "../ir-shared" }
 swamp-symbol = { path = "../symbol" }
 swamp-semantic = { path = "../semantic" }
 swamp-types = { path = "../types" }
@@ -17,3 +18,4 @@ source-map-node = "0.0.1"
 [dev-dependencies]
 swamp-compile = { path = "../compile" }
 swamp-dep-loader = { path = "../dep-loader" }
+ansi-pretty-print = { path = "../../../../piot/ansi-pretty-print" }

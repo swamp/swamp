@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 use swamp_vm_isa::{
-    MemoryAlignment, MemorySize, MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE,
+    MAP_ITERATOR_ALIGNMENT, MAP_ITERATOR_SIZE, MemoryAlignment, MemorySize,
     RANGE_ITERATOR_ALIGNMENT, RANGE_ITERATOR_SIZE, SPARSE_ITERATOR_ALIGNMENT, SPARSE_ITERATOR_SIZE,
     STRING_ITERATOR_ALIGNMENT, STRING_ITERATOR_SIZE, VEC_ITERATOR_ALIGNMENT, VEC_ITERATOR_SIZE,
 };
@@ -39,7 +39,6 @@ pub enum TransformerResult {
     VecMutateSourceCollection,
     WrappedValueFromSourceCollection,
 }
-
 
 impl Transformer {
     pub(crate) const fn return_type(self) -> TransformerResult {

@@ -16,11 +16,11 @@ use swamp_vm_isa::{
     ProgramCounterDelta, RegIndex,
 };
 use swamp_vm_types::types::{
-    b8_type, bytes_type, float_type, int_type,
-    map_iter_type, map_type, pointer_type_again, range_iter_type, range_type,
-    string_type, u16_type, u32_type, u8_type, vec_iter_type, vec_type, BasicType,
-    DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind, DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType,
-    PathInfo, TypedRegister,
+    BasicType, DecoratedOpcode, DecoratedOperand, DecoratedOperandAccessKind,
+    DecoratedOperandOrigin, FrameMemoryAttribute, FrameMemoryInfo, FramePlacedType, PathInfo,
+    TypedRegister, b8_type, bytes_type, float_type, int_type, map_iter_type, map_type,
+    pointer_type_again, range_iter_type, range_type, string_type, u8_type, u16_type, u32_type,
+    vec_iter_type, vec_type,
 };
 use swamp_vm_types::{FrameMemoryAddress, InstructionRange, Meta};
 
@@ -50,14 +50,14 @@ pub fn display_lines(
                 tinter::green("|"),
                 convert_tabs_to_spaces(line),
             )
-                .expect("insert");
+            .expect("insert");
         }
     } else {
         for row_to_display in start_row..=end_row {
             let line = source_file_wrapper
                 .get_source_line(file_id, row_to_display)
                 .unwrap_or("wrong row: {row_to_display}");
-            writeln!(f, "{:4} | {}", row_to_display, convert_tabs_to_spaces(line), )
+            writeln!(f, "{:4} | {}", row_to_display, convert_tabs_to_spaces(line),)
                 .expect("insert");
         }
     }
@@ -83,15 +83,20 @@ pub fn display_meta_information_about_instruction(
                 &InstructionPosition(absolute_pc)
             )
         )
-            .expect("insert");
+        .expect("insert");
     } else {
         writeln!(
             f,
             "     {} {}",
             format!("{absolute_pc:04X}>"),
-            disasm_no_color(instruction, memory_infos, &meta.comment, &InstructionPosition(absolute_pc))
+            disasm_no_color(
+                instruction,
+                memory_infos,
+                &meta.comment,
+                &InstructionPosition(absolute_pc)
+            )
         )
-            .expect("insert");
+        .expect("insert");
     }
 }
 
@@ -177,7 +182,12 @@ pub fn disasm_instructions_no_color(
         string += &format!(
             "> {:04X}: {}\n",
             ip_index,
-            disasm_no_color(instruction, frame_memory_info, &comment_to_use, &InstructionPosition(ip_index as u32))
+            disasm_no_color(
+                instruction,
+                frame_memory_info,
+                &comment_to_use,
+                &InstructionPosition(ip_index as u32)
+            )
         );
     }
 
@@ -286,7 +296,7 @@ pub fn disasm_color(
                 format!("{}{:04X}", "hex:", data.0),
             ),
             DecoratedOperandAccessKind::ImmediateU32(data) => (
-                format!("{}", tinter::magenta(format!("0x{data:X}", ))),
+                format!("{}", tinter::magenta(format!("0x{data:X}",))),
                 format!(
                     "{}{} {}{}",
                     "int:",
@@ -296,7 +306,7 @@ pub fn disasm_color(
                 ),
             ),
             DecoratedOperandAccessKind::ImmediateU16(data) => (
-                format!("{}", tinter::magenta(format!("0x{data:X}", ))),
+                format!("{}", tinter::magenta(format!("0x{data:X}",))),
                 format!("{}{}", "int:", i32::from(*data)),
             ),
             DecoratedOperandAccessKind::ImmediateU8(data) => (
@@ -304,17 +314,17 @@ pub fn disasm_color(
                 format!("{}{}", "int:", *data as i8),
             ),
             DecoratedOperandAccessKind::CountU8(data) => (
-                format!("#{}", tinter::yellow(format!("{data}", ))),
+                format!("#{}", tinter::yellow(format!("{data}",))),
                 format!("{}: {:02X}", "count", *data),
             ),
 
             DecoratedOperandAccessKind::CountU16(data) => (
-                format!("#{}", tinter::yellow(format!("{data}", ))),
+                format!("#{}", tinter::yellow(format!("{data}",))),
                 format!("{}: {:04X}", "count", *data),
             ),
 
             DecoratedOperandAccessKind::ReadMask(data) => (
-                format!("#{}", tinter::yellow(format!("{data}", ))),
+                format!("#{}", tinter::yellow(format!("{data}",))),
                 format!(
                     "{}: {:02X} regs: {}",
                     "mask",
@@ -323,7 +333,7 @@ pub fn disasm_color(
                 ),
             ),
             DecoratedOperandAccessKind::WriteMask(data) => (
-                format!("#{}", tinter::red(format!("{data}", ))),
+                format!("#{}", tinter::red(format!("{data}",))),
                 format!(
                     "{}: {:02X} regs: {}",
                     "mask",
@@ -333,11 +343,11 @@ pub fn disasm_color(
             ),
 
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(data) => (
-                format!("{}", tinter::yellow(format!("{data}", ))),
+                format!("{}", tinter::yellow(format!("{data}",))),
                 String::new(),
             ),
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(data) => (
-                format!("{}", tinter::red(format!("{data}", ))),
+                format!("{}", tinter::red(format!("{data}",))),
                 String::new(),
             ),
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => (
@@ -429,18 +439,18 @@ pub fn disasm_no_color(
             DecoratedOperandAccessKind::AbsolutePc(ip) => {
                 format!("{}{}", "@", format!("{:X}", ip.0))
             }
-            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{data:08X}", ).to_string(),
-            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{data:04X}", ).to_string(),
-            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}", ).to_string(),
-            DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}", ).to_string(),
-            DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}", ).to_string(),
-            DecoratedOperandAccessKind::ReadMask(data) => format!("#{}", format!("{data}", )),
-            DecoratedOperandAccessKind::WriteMask(data) => format!("#{}", format!("{data}", )),
+            DecoratedOperandAccessKind::ImmediateU32(data) => format!("{data:08X}",).to_string(),
+            DecoratedOperandAccessKind::ImmediateU16(data) => format!("{data:04X}",).to_string(),
+            DecoratedOperandAccessKind::ImmediateU8(data) => format!("{data:02X}",).to_string(),
+            DecoratedOperandAccessKind::CountU16(data) => format!("{data:04X}",).to_string(),
+            DecoratedOperandAccessKind::CountU8(data) => format!("{data:02X}",).to_string(),
+            DecoratedOperandAccessKind::ReadMask(data) => format!("#{}", format!("{data}",)),
+            DecoratedOperandAccessKind::WriteMask(data) => format!("#{}", format!("{data}",)),
             DecoratedOperandAccessKind::ReadFrameMemoryAddress(addr) => {
-                format!("{addr}", ).to_string()
+                format!("{addr}",).to_string()
             }
             DecoratedOperandAccessKind::WriteFrameMemoryAddress(addr) => {
-                format!("{addr}", ).to_string()
+                format!("{addr}",).to_string()
             }
             DecoratedOperandAccessKind::WriteBaseRegWithOffset(base_reg, offset) => {
                 format!("[{} #{}]", base_reg, offset.0)
@@ -975,12 +985,10 @@ pub fn disasm(
             to_branch_offset(i16::from_le_bytes([operands[3], operands[4]])),
         ],
 
-        OpCode::VecPushAddr => {
-            &[
-                to_write_reg(operands[0], &vec_type(), frame_memory_info),
-                to_write_reg(operands[1], &bytes_type(), frame_memory_info),
-            ]
-        }
+        OpCode::VecPushAddr => &[
+            to_write_reg(operands[0], &vec_type(), frame_memory_info),
+            to_write_reg(operands[1], &bytes_type(), frame_memory_info),
+        ],
 
         OpCode::VecExtend => &[
             to_write_reg(operands[0], &vec_type(), frame_memory_info),

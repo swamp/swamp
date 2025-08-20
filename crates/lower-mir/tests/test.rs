@@ -4,9 +4,8 @@ use swamp_dep_loader::RunMode;
 use swamp_semantic::ExpressionKind;
 
 #[test]
-fn test_compile() {
-    let (program, module_ref, _source_map) = swamp_compile::compile_string(
-        r#"
+fn test_mir_lowering() {
+    let swamp_code = r#"
         a = 3
         b = a + 88
         if a > 3 {
@@ -14,9 +13,11 @@ fn test_compile() {
         } else {
 
         }
-    "#,
-        &RunMode::Deployed,
-    );
+    "#;
+
+    eprintln!("swamp:\n{swamp_code}");
+    let (program, module_ref, _source_map) =
+        swamp_compile::compile_string(swamp_code, &RunMode::Deployed);
     assert!(program.state.errors.is_empty(), "was errors");
 
     let mut lower_hir = swamp_lower_hir::LowerHir::new(&program.state.types);
@@ -36,5 +37,21 @@ fn test_compile() {
         println!("done!");
     }
 
-    eprintln!("output: {buf}");
+    eprintln!("HIR: {buf}");
+
+    let mut lower_mir = swamp_lower_mir::LowerCtx::new();
+
+    lower_mir.lower_fn_body(&block, None);
+
+    let mut mir_buf = String::new();
+    {
+        let mut printer = Printer::new(&mut mir_buf);
+
+        lower_mir
+            .mir_func
+            .pretty(&mut printer)
+            .expect("what happened");
+        println!("done!");
+    }
+    eprintln!("MIR: {mir_buf}");
 }

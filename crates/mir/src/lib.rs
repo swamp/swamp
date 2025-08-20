@@ -1,16 +1,8 @@
 //! Swamp MIR (mutable, non-SSA)
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct FunctionId(pub u32);
+mod pretty;
 
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct BlockId(pub u32);
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct VReg(pub u32);
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct TypeId(pub u32);
+use swamp_ir_shared::{BlockId, FunctionId, TypeId, VReg};
 
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct StackSlotId(pub u32);
