@@ -10,7 +10,8 @@ pub struct SymId(pub u32);
 pub struct NodeId(pub u32);
 
 impl NodeId {
-    #[must_use] pub const fn default() -> Self {
+    #[must_use]
+    pub const fn default() -> Self {
         Self(0)
     }
 }
