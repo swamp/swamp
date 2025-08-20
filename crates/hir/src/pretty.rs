@@ -77,7 +77,7 @@ impl PrettyPrint for Statement {
     fn pretty(&self, p: &mut Printer) -> std::fmt::Result {
         match &self.kind {
             StatementKind::Let { name, type_id, rhs } => {
-                p.symbol(&format!("{}", name))?;
+                p.symbol(&format!("{name}"))?;
                 p.punctuation("=")?;
 
                 rhs.pretty(p)
@@ -99,9 +99,9 @@ impl PrettyPrint for Statement {
 impl PrettyPrint for Expression {
     fn pretty(&self, p: &mut Printer) -> std::fmt::Result {
         match self {
-            Expression::Atom(_) => todo!(),
-            Expression::Use(_) => todo!(),
-            Expression::IfExpr { cond, then_, else_ } => {
+            Self::Atom(_) => todo!(),
+            Self::Use(_) => todo!(),
+            Self::IfExpr { cond, then_, else_ } => {
                 p.punctuation("if(")?;
                 p.with_indent(|inner_p| {
                     cond.pretty(inner_p)?;
@@ -111,8 +111,8 @@ impl PrettyPrint for Expression {
 
                 p.punctuation(")")
             }
-            Expression::Call { .. } => todo!(),
-            Expression::MatchExpr { .. } => todo!(),
+            Self::Call { .. } => todo!(),
+            Self::MatchExpr { .. } => todo!(),
         }
     }
 }
@@ -126,14 +126,14 @@ impl PrettyPrint for Place {
 impl PrettyPrint for PlaceKind {
     fn pretty(&self, p: &mut Printer) -> std::fmt::Result {
         match self {
-            PlaceKind::Var { sym } => {
+            Self::Var { sym } => {
                 p.punctuation("var(")?;
                 p.symbol(&format!("{}", sym.0))?;
                 p.punctuation(")")?;
             }
-            PlaceKind::Field { .. } => {}
-            PlaceKind::Index { .. } => {}
-            PlaceKind::Deref { .. } => {}
+            Self::Field { .. } => {}
+            Self::Index { .. } => {}
+            Self::Deref { .. } => {}
         }
         Ok(())
     }
@@ -153,7 +153,7 @@ impl PrettyPrint for AtomKind {
                 p.symbol(&format!("{sym}"))?;
                 p.punctuation(")")
             }
-            Self::LitI32 { value } => p.literal(&format!("{}", value)),
+            Self::LitI32 { value } => p.literal(&format!("{value}")),
             Self::LitF32 { .. } => todo!(),
             Self::LitBool { .. } => todo!(),
             Self::LitNone => todo!(),

@@ -1948,12 +1948,12 @@ pub fn write_basic_type(
         BasicTypeKind::Any => write!(f, "Any"),
         BasicTypeKind::Pointer => write!(f, "Ptr"),
         BasicTypeKind::Empty => write!(f, "()"),
-        BasicTypeKind::U8 => write!(f, "{}", "u8"),
-        BasicTypeKind::B8 => write!(f, "{}", "b8"),
-        BasicTypeKind::U16 => write!(f, "{}", "u16"),
-        BasicTypeKind::S32 => write!(f, "{}", "s32"),
-        BasicTypeKind::Fixed32 => write!(f, "{}", "f32"),
-        BasicTypeKind::U32 => write!(f, "{}", "u32"),
+        BasicTypeKind::U8 => write!(f, "u8"),
+        BasicTypeKind::B8 => write!(f, "b8"),
+        BasicTypeKind::U16 => write!(f, "u16"),
+        BasicTypeKind::S32 => write!(f, "s32"),
+        BasicTypeKind::Fixed32 => write!(f, "f32"),
+        BasicTypeKind::U32 => write!(f, "u32"),
         BasicTypeKind::Struct(s) => show_struct_type(s, origin, f, tabs),
         BasicTypeKind::TaggedUnion(tagged_union) => {
             show_tagged_union(tagged_union, origin, f, tabs)
