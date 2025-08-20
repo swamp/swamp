@@ -48,10 +48,6 @@ members = [
     "crates/refs",
     "crates/yini",
     "crates/vm-isa",
-    # new IR level
-    "crates/hir",
-    "crates/mir",
-    "crates/lir", "crates/lower-hir", "crates/lower-mir", "crates/ir-shared",
     # Future projects
     # "crates/lexer",
     # "crates/parser-next",
